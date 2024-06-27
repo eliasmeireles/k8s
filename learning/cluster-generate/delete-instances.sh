@@ -20,7 +20,8 @@ fi
 # Confirm deletion
 echo "The following instances will be deleted:"
 echo "$INSTANCES"
-read -p -r "Are you sure you want to delete these instances? (y/N): " CONFIRM
+# shellcheck disable=SC2162
+read -p "Are you sure you want to delete these instances? (y/N): " CONFIRM
 
 if [[ "$CONFIRM" =~ ^[yY](es)?$ ]]; then
     for instance in $INSTANCES; do

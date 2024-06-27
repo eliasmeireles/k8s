@@ -8,6 +8,15 @@ DEFAULT_WORKER_MEM=4G
 DEFAULT_WORKER_CPUS=2
 DEFAULT_WORKER_DISK=32G
 
+# Create temporary directory for logs
+mkdir -p ./.temp
+
+# Generate a unique log file name based on the current date and time
+LOG_FILE="./.temp/$(date +'%Y-%m-%d_%H-%M-%S').log"
+
+# Redirect output to log file and terminal
+exec > >(tee -a "$LOG_FILE") 2>&1
+
 # Function to display help
 display_help() {
     echo "Usage: $0 [options]"
@@ -181,6 +190,8 @@ multipass exec $HAPROXY_NAME -- bash -c "
 HAPROXY_IP=$(get_ip_address $HAPROXY_NAME)
 
 # Generate HAProxy configuration
+multipass exec $HAPROXY_NAME -- sudo cp /etc/haproxy/haproxy.cfg > /etc/haproxy/haproxy-bk.cfg
+
 cat <<EOF | multipass exec $HAPROXY_NAME -- sudo tee /etc/haproxy/haproxy.cfg >> /dev/null
 
 # K8s config
@@ -204,6 +215,7 @@ done
 
 # Update /etc/hosts for all nodes
 for node in "${MASTER_NODES[@]}" "${WORKER_NODES[@]}"; do
+    echo "Updating /etc/hosts on $node"
     multipass exec $node -- bash -c "echo '${HAPROXY_IP} ${HAPROXY_NAME}' | sudo tee -a /etc/hosts"
 done
 
