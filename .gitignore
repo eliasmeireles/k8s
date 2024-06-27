@@ -1,0 +1,43 @@
+HELP.md
+target/
+*/target
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**
+!**/src/test/**
+
+*.temp
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+.jar
+*.iws
+*.iml
+*.ipr
+*/.idea
+.mvn
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+
+### VS Code ###
+.vscode/
+*.log
+*.gz
+.DS_Store
+/out
+/docker/data
+
+cmake-build-debug
