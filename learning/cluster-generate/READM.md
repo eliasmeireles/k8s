@@ -7,6 +7,16 @@ balancing.
 
 - **Multipass**: Ensure Multipass is installed on your machine. See [Multipass Install](https://multipass.run/install).
 
+## Refenrences
+
+- [Multipass](https://multipass.run/)
+- [Docker install](https://docs.docker.com/engine/install/ubuntu/#install-using-the-convenience-script)
+- [Creating Highly Available Clusters with kubeadm](https://v1-27.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/high-availability/)
+- [Installing kubeadm](https://v1-27.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/)
+- [Instalação com Kubeadm](https://highfalutin-vulture-304.notion.site/Instala-o-com-Kubeadm-8ce4f709872342ff848a4df77e53618d)
+- [CRI-O](https://kubernetes.io/docs/setup/production-environment/container-runtimes/#cri-o)
+- [LUNXXtips](https://www.youtube.com/watch?v=-wbtj11Mqvk&list=PLf-O3X2-mxDnw1xBcTpy4pGkIj_CyvI7B&index=1)
+
 ## Usage
 
 1. **Clone the Repository:**

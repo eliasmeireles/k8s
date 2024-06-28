@@ -2,7 +2,7 @@
 
 # Default values
 DEFAULT_MASTER_MEM=2G
-DEFAULT_MASTER_CPUS=1
+DEFAULT_MASTER_CPUS=2
 DEFAULT_MASTER_DISK=22G
 DEFAULT_WORKER_MEM=4G
 DEFAULT_WORKER_CPUS=2
@@ -77,7 +77,7 @@ read_and_validate() {
     while true; do
         read -p "$prompt" input
         if [ -z "$input" ]; then
-            echo "\n\tInput is required. $example_message\n"
+            echo -e "\n\tInput is required. $example_message\n"
         elif ! echo "$input" | grep -qE "$validation_regex"; then
             echo "Invalid input. $example_message"
         else
@@ -86,6 +86,19 @@ read_and_validate() {
         fi
     done
 }
+
+# Function to validate minimum CPU and memory requirements
+validate_min_requirements() {
+  # Extract numeric part from the value (removing any unit suffix like 'G')
+  local value=$(echo "$1" | sed 's/[^0-9]*//g')
+  local min_value=$(echo "$2" | sed 's/[^0-9]*//g')
+
+  if [ "$value" -lt "$min_value" ]; then
+     echo "Error: Minimum value for CPUs and memory is $min_value"
+     exit 1
+  fi
+}
+
 
 # Parse command-line arguments
 while [ $# -gt 0 ]; do
@@ -146,6 +159,7 @@ done
 [ -z "$NUM_MASTERS" ] && read_and_validate "Enter number of master nodes: " NUM_MASTERS "^[0-9]+$" "Example: 3"
 [ -z "$NUM_WORKERS" ] && read_and_validate "Enter number of worker nodes: " NUM_WORKERS "^[0-9]+$" "Example: 3"
 
+
 # Use default values if not provided
 MASTER_MEM=${MASTER_MEM:-$DEFAULT_MASTER_MEM}
 MASTER_CPUS=${MASTER_CPUS:-$DEFAULT_MASTER_CPUS}
@@ -153,6 +167,12 @@ MASTER_DISK=${MASTER_DISK:-$DEFAULT_MASTER_DISK}
 WORKER_MEM=${WORKER_MEM:-$DEFAULT_WORKER_MEM}
 WORKER_CPUS=${WORKER_CPUS:-$DEFAULT_WORKER_CPUS}
 WORKER_DISK=${WORKER_DISK:-$DEFAULT_WORKER_DISK}
+
+# Validate minimum CPUs and memory for master and worker nodes
+validate_min_requirements "$MASTER_CPUS" 2
+validate_min_requirements "$MASTER_MEM" 2
+validate_min_requirements "$WORKER_CPUS" 2
+validate_min_requirements "$WORKER_MEM" 2
 
 # Arrays to hold master and worker node names
 MASTER_NODES=()
@@ -190,9 +210,9 @@ multipass exec $HAPROXY_NAME -- bash -c "
 HAPROXY_IP=$(get_ip_address $HAPROXY_NAME)
 
 # Generate HAProxy configuration
-multipass exec $HAPROXY_NAME -- sudo cp /etc/haproxy/haproxy.cfg > /etc/haproxy/haproxy-bk.cfg
+multipass exec $HAPROXY_NAME -- sudo cp /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy-bk.cfg
 
-cat <<EOF | multipass exec $HAPROXY_NAME -- sudo tee /etc/haproxy/haproxy.cfg >> /dev/null
+cat <<EOF | multipass exec $HAPROXY_NAME -- sudo tee -a /etc/haproxy/haproxy.cfg > /dev/null
 
 # K8s config
 frontend kubernetes
@@ -223,3 +243,19 @@ done
 multipass exec $HAPROXY_NAME -- sudo systemctl restart haproxy
 
 echo "Cluster setup is complete."
+
+echo "For each node, run
+./kub-config.sh
+"
+
+
+echo "Into the master node, run
+  sudo kubeadm init --control-plane-endpoint $HAPROXY_NAME:6443 --upload-certs
+  mkdir -p \$HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf \$HOME/.kube/config
+  sudo chown \$(id -u):\$(id -g) \$HOME/.kube/config
+  sudo kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.0/manifests/calico.yaml
+  sudo kubectl get nodes
+"
+
+
