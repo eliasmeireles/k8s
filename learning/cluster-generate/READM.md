@@ -39,7 +39,7 @@ cd learning/cluster-generate
 - `--num-masters`: Number of master nodes (required).
 - `--num-workers`: Number of worker nodes (required).
 - `--master-mem`: Memory for master nodes (default: 2G).
-- `--master-cpus`: CPUs for master nodes (default: 1).
+- `--master-cpus`: CPUs for master nodes (default: 2).
 - `--master-disk`: Disk size for master nodes (default: 22G).
 - `--worker-mem`: Memory for worker nodes (default: 4G).
 - `--worker-cpus`: CPUs for worker nodes (default: 2).
