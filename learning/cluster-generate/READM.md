@@ -64,7 +64,6 @@ cd learning/cluster-generate
 
 > Execute commands in `sudo su` mode
 
-````bash
 - After run the command bellow, pay attention to the output, it will show the command to be executed to join on the
   masters and workers
   nodes.
