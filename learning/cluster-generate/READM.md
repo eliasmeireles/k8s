@@ -23,8 +23,8 @@ balancing.
 1. **Clone the Repository:**
 
 ````bash
-git clone https://github.com/eliasmeireles/ssh-test.git
-cd learning/cluster-generate
+git clone https://github.com/eliasmeireles/k8s.git
+cd k8s/learning/cluster-generate
 ````
 
 2. **Run the Script:**
