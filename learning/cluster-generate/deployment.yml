@@ -17,6 +17,18 @@ spec:
           image: nginx:latest
           ports:
             - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 20
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -27,8 +39,8 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: nginx-demo-deployment
-  minReplicas: 2
-  maxReplicas: 10
+  minReplicas: 5
+  maxReplicas: 15
   metrics:
     - type: Resource
       resource:
