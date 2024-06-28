@@ -100,6 +100,25 @@ kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/we
 
 ![k8s nodes](doc/k8s-nodes-info.png)
 
+## Installing [kube-prometheus](https://github.com/prometheus-operator/kube-prometheus)
+
+```bash
+git clone https://github.com/prometheus-operator/kube-prometheus
+cd kube-prometheus
+kubectl create -f manifests/setup
+kubectl apply -f manifests/
+kubectl get pods -n monitoring
+``` 
+
+- When all pods in the namespace `monitoring` are running, you can access the Prometheus dashboard using the following
+  command:
+
+```bash
+kubectl port-forward -n monitoring svc/grafana 33000:3000
+```
+
+- Access the dashboard at http://localhost:33000 and use the default credentials (admin/admin).
+
 ## Cleanup:
 
 - To delete all instances created by the script, use:
