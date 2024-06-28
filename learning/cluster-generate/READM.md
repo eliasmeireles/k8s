@@ -89,6 +89,16 @@ kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/we
 - Each node created will have the necessary configuration and Kubernetes setup executed via a transferred script (
   kub-config.sh).
 
+## Example
+
+- After completed the steps described in [Master node setup](#master-node-setup), you will see the output below:
+
+![Cluster setup run example](doc/setup-execution-example.png)
+
+![Multipass filtering created instances](doc/multipass-filter.png)
+
+![k8s nodes](doc/k8s-nodes-info.png)
+
 ## Cleanup:
 
 - To delete all instances created by the script, use:
