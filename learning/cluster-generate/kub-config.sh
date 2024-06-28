@@ -6,7 +6,8 @@ echo "$(hostname) Installing Kubernetes components..."
 sudo apt-get update && sudo apt-get install -y \
     apt-transport-https \
     ca-certificates \
-    curl
+    curl \
+    net-tools
 
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh

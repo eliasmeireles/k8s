@@ -240,22 +240,20 @@ for node in "${MASTER_NODES[@]}" "${WORKER_NODES[@]}"; do
 done
 
 # Restart HAProxy to apply the new configuration
-multipass exec $HAPROXY_NAME -- sudo systemctl restart haproxy
+multipass exec "$HAPROXY_NAME" -- sudo systemctl restart haproxy
+
+multipass exec "k8s-haproxy-v1" -- sudo systemctl status haproxy --no-pager
 
 echo "Cluster setup is complete."
 
-echo "For each node, run
-./kub-config.sh
+echo "Run 'sudo su' into a master node, after and run commands below to initialize the cluster
+
+    kubeadm init --control-plane-endpoint $HAPROXY_NAME:6443 --upload-certs
+
+    kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/weave-daemonset-k8s.yaml
+
+    kubectl get nodes
 "
 
-
-echo "Into the master node, run
-  sudo kubeadm init --control-plane-endpoint $HAPROXY_NAME:6443 --upload-certs
-  mkdir -p \$HOME/.kube
-  sudo cp -i /etc/kubernetes/admin.conf \$HOME/.kube/config
-  sudo chown \$(id -u):\$(id -g) \$HOME/.kube/config
-  sudo kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.0/manifests/calico.yaml
-  sudo kubectl get nodes
-"
-
+setup_first_node_as_master_log "${MASTER_NODES[0]}"
 
