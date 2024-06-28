@@ -16,6 +16,7 @@ balancing.
 - [Instalação com Kubeadm](https://highfalutin-vulture-304.notion.site/Instala-o-com-Kubeadm-8ce4f709872342ff848a4df77e53618d)
 - [CRI-O](https://kubernetes.io/docs/setup/production-environment/container-runtimes/#cri-o)
 - [LUNXXtips](https://www.youtube.com/watch?v=-wbtj11Mqvk&list=PLf-O3X2-mxDnw1xBcTpy4pGkIj_CyvI7B&index=1)
+- [Weaveworks](https://github.com/weaveworks/weave/blob/master/site/kubernetes/kube-addon.md#-installation)
 
 ## Usage
 
