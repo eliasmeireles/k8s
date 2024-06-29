@@ -6,6 +6,7 @@ RUN apt-get update && \
     curl \
     git \
     tree \
+    iproute2 \
     net-tools \
     iputils-ping \
     gnupg2 \
