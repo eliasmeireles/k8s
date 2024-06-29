@@ -3,13 +3,13 @@ kind: Pod
 metadata:
   name: "{{ include "file-server.fullname" . }}-test-connection"
   labels:
-    { { - include "file-server.labels" . | nindent 4 } }
+    {{- include "file-server.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": test
 spec:
   containers:
     - name: wget
       image: busybox
-      command: [ 'wget' ]
-      args: [ '{{ include "file-server.fullname" . }}:{{ .Values.service.port }}' ]
+      command: ['wget']
+      args: ['{{ include "file-server.fullname" . }}:{{ .Values.service.port }}']
   restartPolicy: Never
