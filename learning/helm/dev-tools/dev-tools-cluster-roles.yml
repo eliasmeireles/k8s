@@ -1,23 +1,27 @@
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
-  name: dev-tools-cluster-role
+  namespace: development
+  name: pod-reader
 rules:
   - apiGroups: [""]
-    resources: ["nodes"]
+    resources: [ "pods", "nodes", "services" ]
     verbs: ["get", "list", "watch"]
+
 
 ---
 
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
-  name: dev-tools-cluster-role-binding
+  name: dev-tools-pod-reader-binding
+  namespace: development
 subjects:
   - kind: ServiceAccount
     name: dev-tools
     namespace: development
 roleRef:
-  kind: ClusterRole
-  name: dev-tools-cluster-role
+  kind: Role
+  name: pod-reader
   apiGroup: rbac.authorization.k8s.io
+
