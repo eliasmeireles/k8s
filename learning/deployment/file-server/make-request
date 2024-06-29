@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# Check if argument is provided
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 <number_of_parallel_requests>"
+    exit 1
+fi
+
+# Number of parallel requests to execute
+NUM_REQUESTS=$1
+
+# Function to make curl request
+make_curl_request() {
+    curl --location 'http://localhost:8080/api/file-server/v1/file/upload' \
+    --form 'resource=@"/home/eliasmeireles/Downloads/tabby-1.0.207-linux-x64.deb"' \
+    --form 'fileName="tabby"' \
+    --form 'dirName="installer"' >/dev/null 2>&1
+}
+
+# Loop to run curl requests in parallel
+for (( i=1; i<=$NUM_REQUESTS; i++ )); do
+    make_curl_request &
+done
+
+# Wait for all background processes to finish
+wait
+
+echo "All requests completed."

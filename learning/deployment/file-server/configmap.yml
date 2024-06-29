@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: file-server
+  namespace: development
+data:
+  PORT: "80"

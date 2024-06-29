@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: file-server
+  namespace: development
+spec:
+  replicas: 1  # Ensure initial replicas are set appropriately
+  selector:
+    matchLabels:
+      app: file-server
+  template:
+    metadata:
+      labels:
+        app: file-server
+    spec:
+      containers:
+        - name: file-server
+          image: eliasmeireles/file-server:1.1
+          resources:
+            limits:
+              cpu: "1"
+              memory: ".5G"
+            requests:
+              cpu: "500m"
+              memory: "128Mi"
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+          readinessProbe:
+            httpGet:
+              path: /api/file-server/v1/health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/file-server/v1/health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+
+#          volumeMounts:
+#            - mountPath: /file-server
+#              name: file-server-volume
+#            - mountPath: /opt/file-server
+#              name: file-server-volume
+#      volumes:
+#        - name: file-server-volume
+#          persistentVolumeClaim:
+#            claimName: file-server
