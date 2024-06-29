@@ -41,16 +41,15 @@ service:
   port: 8080
 
 ingress:
-  enabled: false
+  enabled: true
   className: ""
   annotations:
-  #     kubernetes.io/ingress.class: nginx
-  #     kubernetes.io/tls-acme: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /
   hosts:
-    - host: file-server.local
+    - host: k8s.local.service
       paths:
-        - path: /
-          pathType: ImplementationSpecific
+        - path: /api/file-server/
+          pathType: Prefix
   tls: [ ]
   #  - secretName: chart-example-tls
   #    hosts:
@@ -71,7 +70,7 @@ resources:
 autoscaling:
   enabled: false
   minReplicas: 2
-  maxReplicas: 100
+  maxReplicas: 10
   #  targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 

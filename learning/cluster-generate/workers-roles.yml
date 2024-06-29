@@ -1,0 +1,27 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: kube-system
+  name: kubelet-role
+rules:
+  - apiGroups: [ "" ]
+    resources: [ "nodes", "nodes/proxy", "nodes/status" ]
+    verbs: [ "get", "list", "update" ]
+  - apiGroups: [ "" ]
+    resources: [ "pods" ]
+    verbs: [ "get", "list", "watch" ]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kubelet-role-binding
+  namespace: kube-system
+subjects:
+  - kind: User
+    name: kubelet
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: kubelet-role
+  apiGroup: rbac.authorization.k8s.io
