@@ -30,7 +30,7 @@ cd k8s/learning/cluster-generate
 2. **Run the Script:**
 
 ````bash
-./setup.sh
+./setup
 ````
 
 ## Options
@@ -50,7 +50,7 @@ cd k8s/learning/cluster-generate
 ## Example:
 
 ````bash
-./setup.sh --base-name my-cluster --cluster-version v1.27 --num-masters 3 --num-workers 3 --master-mem 3G --worker-mem 6G
+./setup --base-name my-cluster --cluster-version v1.27 --num-masters 3 --num-workers 3 --master-mem 3G --worker-mem 6G
 ````
 
 - This command will create a Kubernetes cluster named my-cluster, with version v1.27, 3 master nodes, and 3 worker
