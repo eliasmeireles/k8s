@@ -87,7 +87,7 @@ kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/we
 - The script assumes a Unix-like environment.
 - Ensure you have sufficient resources (CPU, memory, disk space) on your host machine to run the virtual machines.
 - Each node created will have the necessary configuration and Kubernetes setup executed via a transferred script (
-  kub-config.sh).
+  kube-config.sh).
 
 ## Example
 
@@ -113,10 +113,10 @@ kubectl get pods -n monitoring
   command:
 
 ```bash
-kubectl port-forward -n monitoring svc/grafana 33000:3000
+kubectl port-forward -n monitoring svc/grafana 3000:3000
 ```
 
-- Access the dashboard at http://localhost:33000 and use the default credentials (admin/admin).
+- Access the dashboard at http://localhost:3000 and use the default credentials (admin/admin).
 
 ## Cleanup:
 

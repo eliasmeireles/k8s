@@ -36,11 +36,11 @@ display_help() {
     exit 0
 }
 
-# Function to copy and run the kub-config.sh script on an instance
+# Function to copy and run the kube-config.sh script on an instance
 copy_and_run_kub_config() {
     local node=$1
-    multipass transfer kub-config.sh "$node":/home/ubuntu/kub-config.sh
-    multipass exec "$node" -- bash -c "chmod +x /home/ubuntu/kub-config.sh && sudo /home/ubuntu/kub-config.sh"
+    multipass transfer kube-config.sh "$node":/home/ubuntu/kube-config.sh
+    multipass exec "$node" -- bash -c "chmod +x /home/ubuntu/kube-config.sh && sudo /home/ubuntu/kube-config.sh"
 }
 
 # Function to get the IP address of an instance
