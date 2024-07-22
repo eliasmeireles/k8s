@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Set the name of the Multipass instance
+INSTANCE_NAME="microk8s"
+
+multipass delete microk8s
+multipass purge
+
+# Create the Multipass instance
+multipass launch -n $INSTANCE_NAME -c 2 --m 4G -d 20G
+
+# Get the IP address of the instance
+INSTANCE_IP=$(multipass info $INSTANCE_NAME | grep 'IPv4' | awk '{print $2}')
+
+# Install MicroK8s
+multipass exec $INSTANCE_NAME -- bash -c "sudo snap install microk8s --classic"
+
+# Wait for MicroK8s to initialize
+echo "Waiting for MicroK8s to start..."
+multipass exec $INSTANCE_NAME -- bash -c "sudo microk8s status --wait-ready"
+
+# Enable essential MicroK8s add-ons
+multipass exec $INSTANCE_NAME -- bash -c "sudo microk8s enable dns storage metrics-server prometheus grafana"
+
+# Enable other useful add-ons
+multipass exec $INSTANCE_NAME -- bash -c "sudo microk8s enable ingress"
+
+# Configure kubectl for local access
+multipass exec $INSTANCE_NAME -- bash -c "sudo microk8s kubectl config view --raw > ~/.kube/config"
+
+# Print the kubeconfig details
+echo "MicroK8s installation complete."
+echo "To access kubectl, run the following commands:"
+echo "multipass exec $INSTANCE_NAME -- bash -c 'sudo microk8s kubectl config view --raw > ~/.kube/config'"
+echo "Check if the /.kube/config master ip address is equals to $INSTANCE_IP"
+echo "export KUBECONFIG=~/.kube/config"
+
+multipass exec $INSTANCE_NAME -- bash
