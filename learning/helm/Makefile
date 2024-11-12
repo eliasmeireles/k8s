@@ -4,6 +4,7 @@ create-namespace:
 	kubectl config set-context --current --namespace=development
 
 app-update:
+	kubectl apply -f internal-server/config-map.yaml
 	./deploy --release-name internal-server
 	./deploy --release-name dev-tools
 	./deploy --release-name file-server

@@ -70,15 +70,17 @@ networkPolicy:
     app: internal-server
   ingress:
 
-configPVC:
-  claimName: "config-pvc"  # Name of the PVC to mount for config files
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
-
 deployment:
   metadata:
     labels:
       app: internal-server
+
+env:
+  - name: CONFIG_BASE_PATH
+    value: "/opt/proxy-server/config"
+  - name: HTTPS_ENABLE
+    value: "false"
+  - name: LOGSTASH_URI
+    value: "logstash:5000"
+  - name: LOGSTASH_ENABLED
+    value: "false"

@@ -1,21 +1,21 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: pvc-inspect-pod
+  name: pvc-transfer-pod-v1
 spec:
   containers:
     - name: busybox
       image: busybox
-      command: [ "/bin/sh", "-c", "cp -r /source/* /mnt/" ]
+      command: ["/bin/sh", "-c", "cp -r /source/* /mnt/ && tail -f /dev/null"]
       volumeMounts:
-        - name: config-pvc
+        - name: storage-pv
           mountPath: /mnt/internal-server/config
         - name: source-volume
           mountPath: /source
   volumes:
-    - name: config-pvc
+    - name: storage-pv
       persistentVolumeClaim:
-        claimName: config-pvc
+        claimName: storage-pv
     - name: source-volume
       hostPath:
         path: ./internal-server/config

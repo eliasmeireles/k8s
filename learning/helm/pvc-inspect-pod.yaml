@@ -6,12 +6,12 @@ spec:
   containers:
     - name: busybox
       image: busybox
-      command: [ "/bin/sh", "-c", "ls /mnt/internal-server/config" ]
+      command: ["/bin/sh", "-c", "ls /mnt/internal-server/config"]
       volumeMounts:
-        - name: config-pvc
+        - name: storage-pv
           mountPath: /mnt/internal-server/config
   volumes:
-    - name: config-pvc
+    - name: storage-pv
       persistentVolumeClaim:
-        claimName: config-pvc
+        claimName: storage-pv
   restartPolicy: Never
