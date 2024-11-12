@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Default values for release name and namespace
+RELEASE_NAME=""
+NAMESPACE="development"
+
+# Function to display usage
+usage() {
+    echo "Usage: $0 --release-name <release-name>"
+    exit 1
+}
+
+# Parse command-line arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --release-name) RELEASE_NAME="$2"; shift ;;
+        *) echo "Unknown parameter passed: $1"; usage ;;
+    esac
+    shift
+done
+
+# Check if release name and namespace are provided
+if [ -z "$RELEASE_NAME" ]; then
+    echo "Error: --release-name is required."
+    usage
+fi
+
+# Perform Helm upgrade/install
+helm upgrade "$RELEASE_NAME" "$RELEASE_NAME" --install --namespace "$NAMESPACE" --reuse-values
+
+# Check if the deployment was successful
+# shellcheck disable=SC2181
+if [ $? -eq 0 ]; then
+    echo "Deployment successful!"
+else
+    echo "Deployment failed. Please check the error messages above."
+    exit 1
+fi

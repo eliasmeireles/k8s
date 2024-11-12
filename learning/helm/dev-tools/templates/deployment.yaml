@@ -39,6 +39,13 @@ spec:
               protocol: TCP
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      #          volumeMounts:
+      #            - name: storage-pvc
+      #              mountPath: /mnt/  # Mount PVC at /mnt/config (adjust the path as necessary)
+      #      volumes:
+      #        - name: storage-pvc
+      #          persistentVolumeClaim:
+      #            claimName: storage-pvc
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

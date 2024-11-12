@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: { { include "internal-server.fullname" . } }
+  labels:
+    { { - include "internal-server.labels" . | nindent 4 } }
+spec:
+  { { - if not .Values.autoscaling.enabled } }
+  replicas: { { .Values.replicaCount } }
+  { { - end } }
+  selector:
+    matchLabels:
+      { { - include "internal-server.selectorLabels" . | nindent 6 } }
+  template:
+    metadata:
+      { { - with .Values.podAnnotations } }
+      annotations:
+        { { - toYaml . | nindent 8 } }
+      { { - end } }
+      labels:
+        { { - include "internal-server.selectorLabels" . | nindent 8 } }
+    spec:
+      { { - with .Values.imagePullSecrets } }
+      imagePullSecrets:
+        { { - toYaml . | nindent 8 } }
+      { { - end } }
+      serviceAccountName: { { include "internal-server.serviceAccountName" . } }
+      securityContext:
+        { { - toYaml .Values.podSecurityContext | nindent 8 } }
+      initContainers:
+        - name: copy-config
+          image: busybox
+          command:
+            - "/bin/sh"
+            - "-c"
+            - "cp -r /source/* /mnt/internal-server/config"
+          volumeMounts:
+            - name: storage-pvc
+              mountPath: /mnt/internal-server/config
+            - name: source-volume
+              mountPath: /source
+      containers:
+        - name: { { .Chart.Name } }
+          securityContext:
+            { { - toYaml .Values.securityContext | nindent 12 } }
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: { { .Values.image.pullPolicy } }
+          envFrom:
+            - configMapRef:
+                name: proxy-server-config
+          ports:
+            - name: http
+              containerPort: { { .Values.service.port } }
+              protocol: TCP
+          resources:
+            { { - toYaml .Values.resources | nindent 12 } }
+          volumeMounts:
+            - name: storage-pvc
+              mountPath: /internal-server/config
+      volumes:
+        - name: storage-pvc
+          persistentVolumeClaim:
+            claimName: storage-pvc
+        - name: source-volume
+          hostPath:
+            path: ./config
+            type: Directory
+      { { - with .Values.nodeSelector } }
+      nodeSelector:
+        { { - toYaml . | nindent 8 } }
+      { { - end } }
+      { { - with .Values.affinity } }
+      affinity:
+        { { - toYaml . | nindent 8 } }
+      { { - end } }
+      { { - with .Values.tolerations } }
+      tolerations:
+        { { - toYaml . | nindent 8 } }
+      { { - end } }

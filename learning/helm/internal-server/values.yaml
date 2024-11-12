@@ -1,7 +1,7 @@
 image:
-  repository: eliasmeireles/file-server
+  repository: eliasmeireles/proxy-server
   pullPolicy: IfNotPresent
-  tag: "v1"
+  tag: "1"
 
 imagePullSecrets: [ ]
 nameOverride: ""
@@ -21,12 +21,13 @@ podSecurityContext: { }
 securityContext: { }
 
 labels:
-  app: file-server
+  app: internal-server
+  utils: internal-server
 
 service:
   type: LoadBalancer
-  port: 8080
-  targetPort: 8080
+  port: 80
+  targetPort: 80
   nodePort: 30080
 
 ingress:
@@ -37,7 +38,7 @@ ingress:
   hosts:
     - host: k8s.local.service
       paths:
-        - path: /api/file-server/v1/
+        - path: /
           pathType: Prefix
   tls:
 
@@ -51,8 +52,8 @@ resources:
 
 autoscaling:
   enabled: true
-  minReplicas: 5
-  maxReplicas: 10
+  minReplicas: 1
+  maxReplicas: 5
 
 nodeSelector:
   kubernetes.io/os: linux
@@ -63,13 +64,21 @@ affinity: { }
 
 networkPolicy:
   enabled: true
-  name: allow-file-server-traffic
+  name: allow-internal-server-traffic
   namespace: default
   labels:
-    app: file-server
+    app: internal-server
   ingress:
+
+configPVC:
+  claimName: "config-pvc"  # Name of the PVC to mount for config files
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
 
 deployment:
   metadata:
     labels:
-      app: file-server
+      app: internal-server

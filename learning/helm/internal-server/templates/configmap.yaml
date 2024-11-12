@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: proxy-server-config
+data:
+  CONFIG_BASE_PATH: "/opt/proxy-server/config"
+  HTTPS_ENABLE: "false"
+  LOGSTASH_URI: "logstash:5000"
+  LOGSTASH_ENABLED: "false"

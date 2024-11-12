@@ -1,0 +1,15 @@
+{ { - if .Values.networkPolicy.enabled } }
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: { { .Values.networkPolicy.name | default "allow-file-server-traffic" } }
+  namespace: { { .Values.networkPolicy.namespace | default .Release.Namespace } }
+spec:
+  podSelector:
+    matchLabels:
+      app: { { .Values.labels.app | default "file-server" } }
+  policyTypes:
+    - Ingress
+  ingress:
+    { { - toYaml .Values.networkPolicy.ingress | nindent 4 } }
+  { { - end } }

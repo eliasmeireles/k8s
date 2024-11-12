@@ -1,0 +1,3 @@
+origins:
+  - internal-server
+  - k8s.local.service

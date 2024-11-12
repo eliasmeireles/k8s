@@ -8,7 +8,6 @@ rules:
     resources: [ "pods", "nodes", "services" ]
     verbs: ["get", "list", "watch"]
 
-
 ---
 
 apiVersion: rbac.authorization.k8s.io/v1
@@ -18,8 +17,15 @@ metadata:
   namespace: development
 subjects:
   - kind: ServiceAccount
+    name: internal-server
+    namespace: development
+  - kind: ServiceAccount
     name: dev-tools
     namespace: development
+  - kind: ServiceAccount
+    name: file-server
+    namespace: development
+
 roleRef:
   kind: Role
   name: pod-reader

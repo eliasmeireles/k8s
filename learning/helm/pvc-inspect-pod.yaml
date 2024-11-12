@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pvc-inspect-pod
+spec:
+  containers:
+    - name: busybox
+      image: busybox
+      command: [ "/bin/sh", "-c", "ls /mnt/internal-server/config" ]
+      volumeMounts:
+        - name: config-pvc
+          mountPath: /mnt/internal-server/config
+  volumes:
+    - name: config-pvc
+      persistentVolumeClaim:
+        claimName: config-pvc
+  restartPolicy: Never
