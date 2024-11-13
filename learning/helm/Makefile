@@ -8,6 +8,20 @@ app-update:
 	./deploy --release-name internal-server
 	./deploy --release-name dev-tools
 	./deploy --release-name file-server
+	echo "Waiting for pods to be ready..."
+	sleep 10
+	make show-pods
+
+internal-server-up:
+	make internal-server-down
+	kubectl apply -f internal-server/config-map.yaml
+	./deploy --release-name internal-server
+	make show-pods
+
+internal-server-down:
+	kubectl delete -f internal-server/config-map.yaml || true
+	./uninstall --release-name internal-server || true
+	make show-pods
 
 app-up:
 	make app-down
@@ -17,6 +31,8 @@ app-down:
 	./uninstall --release-name internal-server || true
 	./uninstall --release-name dev-tools || true
 	./uninstall --release-name file-server || true
+	sleep 10
+	make show-pods
 
 show-pods:
 	kubectl get pods -n development -o wide --show-labels

@@ -41,7 +41,7 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             - name: storage-pv
-              mountPath: /mnt/  # Mount PVC at /mnt/config (adjust the path as necessary)
+              mountPath: /mnt
       volumes:
         - name: storage-pv
           persistentVolumeClaim:

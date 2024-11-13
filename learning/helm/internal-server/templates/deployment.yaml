@@ -27,6 +27,20 @@ spec:
       serviceAccountName: {{ include "internal-server.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: init-copy-config
+          image: eliasmeireles/busybox:latest
+          imagePullPolicy: Always
+          command:
+            - /bin/sh
+            - -c
+            - |
+              sh setup
+
+          volumeMounts:
+            - name: storage-pv
+              mountPath: /mnt
+
       containers:
         - name: {{ .Chart.Name }}
           securityContext:

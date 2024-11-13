@@ -15,14 +15,12 @@ serviceAccount:
 podAnnotations:
   prometheus.io/scrape: "true"
   prometheus.io/port: "8080"
-  example.com/annotation-key: "value"
 
 podSecurityContext: { }
 securityContext: { }
 
 labels:
   app: internal-server
-  utils: internal-server
 
 service:
   type: LoadBalancer
@@ -52,8 +50,8 @@ resources:
 
 autoscaling:
   enabled: true
-  minReplicas: 1
-  maxReplicas: 5
+  minReplicas: 2
+  maxReplicas: 10
 
 nodeSelector:
   kubernetes.io/os: linux
@@ -65,7 +63,7 @@ affinity: { }
 networkPolicy:
   enabled: true
   name: allow-internal-server-traffic
-  namespace: default
+  namespace: development
   labels:
     app: internal-server
   ingress:

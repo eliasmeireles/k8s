@@ -1,0 +1,22 @@
+#!/bin/bash
+
+set -e
+
+echo "Creating directory /mnt/internal-server/"
+
+mkdir -p "/mnt/internal-server/" || true
+
+echo "Copying /config to /mnt/internal-server/config"
+
+rm -rf /mnt/internal-server/config
+
+cp -R /config /mnt/internal-server/config
+
+echo "Configuration complete successfully"
+
+ls -l /mnt/internal-server/config
+
+cat /mnt/internal-server/config/origins/internal-config.yaml
+cat /mnt/internal-server/config/redirects/file-server.yaml
+
+
