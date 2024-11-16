@@ -5,7 +5,7 @@ source ./k8s-setup-utils
 # Create master nodes
 for i in $(seq 1 "$NUM_MASTERS"); do
     MASTER_NAME="${BASE_NAME}-master-${i}-${CLUSTER_VERSION}"
-    echo "Creating master node: $MASTER_NAME"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Creating master node: $MASTER_NAME"
     multipass launch --name "$MASTER_NAME" --memory "$MASTER_MEM" --cpus "$MASTER_CPUS" --disk "$MASTER_DISK" --cloud-init ./template/k8s-base.yaml
     # shellcheck disable=SC2206
     MASTER_NODES+=($MASTER_NAME)
@@ -14,7 +14,7 @@ done
 # Create worker nodes
 for i in $(seq 1 "$NUM_WORKERS"); do
     WORKER_NAME="${BASE_NAME}-worker-${i}-${CLUSTER_VERSION}"
-    echo "Creating worker node: $WORKER_NAME"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Creating worker node: $WORKER_NAME"
     multipass launch --name "$WORKER_NAME" --memory "$WORKER_MEM" --cpus "$WORKER_CPUS" --disk "$WORKER_DISK" --cloud-init ./template/k8s-base.yaml
     # shellcheck disable=SC2206
     WORKER_NODES+=($WORKER_NAME)
@@ -22,7 +22,7 @@ done
 
 # Create HAProxy node
 HAPROXY_NAME="${BASE_NAME}-haproxy-${CLUSTER_VERSION}"
-echo "Creating HAProxy node: $HAPROXY_NAME"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Creating HAProxy node: $HAPROXY_NAME"
 multipass launch --name "$HAPROXY_NAME" --memory 1G --cpus 1 --disk 5G
 
 ## Install HAProxy
@@ -60,7 +60,7 @@ done
 
 # Update /etc/hosts for all nodes
 for node in "${MASTER_NODES[@]}" "${WORKER_NODES[@]}"; do
-    echo "Updating /etc/hosts on $node"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Updating /etc/hosts on $node"
     multipass exec "$node" -- bash -c "echo '${HAPROXY_IP} ${HAPROXY_NAME}' | sudo tee -a /etc/hosts"
 done
 
@@ -69,9 +69,9 @@ multipass exec "$HAPROXY_NAME" -- sudo systemctl restart haproxy
 
 multipass exec "$HAPROXY_NAME" -- sudo systemctl status haproxy --no-pager
 
-echo "Cluster setup is complete."
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Cluster setup is complete."
 
-echo "Run 'sudo su' into a master node, after and run commands below to initialize the cluster
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Run 'sudo su' into a master node, after and run commands below to initialize the cluster
 
     kubeadm init --control-plane-endpoint $HAPROXY_NAME:6443 --upload-certs
 
