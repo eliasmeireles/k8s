@@ -1,0 +1,14 @@
+#cloud-config
+write_files:
+  - path: /etc/bash.bashrc
+    content: |
+      #powerline
+      if [ -f /usr/bin/powerline-daemon ]; then
+        powerline-daemon --quiet
+        POWERLINE_BASH_CONTINUATION=1
+        POWERLINE_BASH_SELECT=1
+        . /usr/share/powerline/bindings/bash/powerline.sh
+      fi
+    append: true
+runcmd:
+ - apt install -y powerline

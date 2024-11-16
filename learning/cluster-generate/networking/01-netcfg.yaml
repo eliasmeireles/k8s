@@ -1,0 +1,14 @@
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    eno1:
+      dhcp4: no
+  bridges:
+    k8s-bridge:
+      interfaces: [eno1]
+      addresses:
+        - 10.10.12.1/24
+      parameters:
+        stp: false
+      dhcp4: false
