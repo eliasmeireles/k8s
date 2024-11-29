@@ -1,4 +1,0 @@
-#!/bin/bash
-
-multipass launch --name k8s-rancher-test --cpus 4 --memory 8G --disk 50G --cloud-init ./template/k8s-rancher.yaml
-

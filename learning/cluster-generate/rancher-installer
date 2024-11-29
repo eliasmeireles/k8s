@@ -1,0 +1,66 @@
+#!/bin/bash
+
+set -e
+
+# Default values
+INSTANCE_NAME="k8s-rancher"
+DEFAULT_MEM=8G
+DEFAULT_CPUS=4
+DEFAULT_DISK=50G
+
+# Function to display usage information
+usage() {
+    echo "Usage: $0 [options]"
+    echo "Options:"
+    echo "  --name     Name of the Multipass instance (default: $INSTANCE_NAME)"
+    echo "  --cpu      Number of CPUs (default: $DEFAULT_CPUS)"
+    echo "  --memory   Memory in GB (default: $DEFAULT_MEM)"
+    echo "  --disk     Disk size (default: $DEFAULT_DISK)"
+    exit 1
+}
+
+# Initialize variables with default values
+NAME="$INSTANCE_NAME"
+CPUS="$DEFAULT_CPUS"
+MEMORY="$DEFAULT_MEM"
+DISK="$DEFAULT_DISK"
+
+# Parse command-line arguments
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --name)
+            NAME="$2"
+            shift 2
+            ;;
+        --cpu)
+            CPUS="$2"
+            shift 2
+            ;;
+        --memory)
+            MEMORY="$2"
+            shift 2
+            ;;
+        --disk)
+            DISK="$2"
+            shift 2
+            ;;
+        --help)
+            usage
+            ;;
+        -h)
+            usage
+            ;;
+        *)
+            echo "Unknown option: $1"
+            usage
+            ;;
+    esac
+done
+
+echo "Installing Rancher on Multipass instance '$NAME' with $CPUS CPUs, $MEMORY memory, and $DISK disk size."
+
+# Launch Multipass instance with specified or default parameters
+multipass launch --name "$NAME" --cpus "$CPUS" --memory "$MEMORY" --disk "$DISK" --cloud-init ./template/k8s-rancher.yaml
+
+echo "Multipass instance '$NAME' created successfully."
+
