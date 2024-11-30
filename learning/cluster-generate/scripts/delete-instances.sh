@@ -1,8 +1,12 @@
 #!/bin/bash
 
+source ./scripts/log-utils
+
+setup_logs "cluster-deletion"
+
 # Check if an argument is provided
 if [ -z "$1" ]; then
-    echo "Usage: $0 <pattern>"
+    log "Usage: $0 <pattern>"
     exit 1
 fi
 
@@ -13,22 +17,22 @@ INSTANCES=$(multipass list --format csv | grep -i "$PATTERN" | cut -d, -f1)
 
 # Check if any instances were found
 if [ -z "$INSTANCES" ]; then
-    echo "No instances found matching pattern: $PATTERN"
+    log "No instances found matching pattern: $PATTERN"
     exit 1
 fi
 
 # Confirm deletion
-echo "The following instances will be deleted:"
-echo "$INSTANCES"
+log "The following instances will be deleted:"
+log "$INSTANCES"
 # shellcheck disable=SC2162
 read -p "Are you sure you want to delete these instances? (y/N): " CONFIRM
 
 if [[ "$CONFIRM" =~ ^[yY](es)?$ ]]; then
     for instance in $INSTANCES; do
-        echo "Deleting instance: $instance"
+        log "Deleting instance: $instance"
         multipass delete --purge "$instance"
     done
-    echo "Deletion complete."
+    log "Deletion complete."
 else
-    echo "Deletion canceled."
+    log "Deletion canceled."
 fi

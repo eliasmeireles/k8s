@@ -6,7 +6,7 @@ runcmd:
   - sudo systemctl enable docker
   - sudo systemctl start docker
   - sudo usermod -aG docker ubuntu
-  - sudo docker run -d --restart=unless-stopped -p 80:80 -p 443:443 --privileged  rancher/rancher:latest
+  - sudo docker run -d --restart=unless-stopped -p 80:80 -p 443:443 --privileged --name rancher-server rancher/rancher:latest
 
 
   

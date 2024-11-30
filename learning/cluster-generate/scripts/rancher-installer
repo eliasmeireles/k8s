@@ -1,6 +1,8 @@
 #!/bin/bash
 
-set -e
+source ./scripts/log-utils
+
+setup_logs "rancher-installer"
 
 # Default values
 INSTANCE_NAME="k8s-rancher"
@@ -57,10 +59,32 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-echo "Installing Rancher on Multipass instance '$NAME' with $CPUS CPUs, $MEMORY memory, and $DISK disk size."
+log "Installing Rancher on Multipass instance '$NAME' with $CPUS CPUs, $MEMORY memory, and $DISK disk size."
 
 # Launch Multipass instance with specified or default parameters
 multipass launch --name "$NAME" --cpus "$CPUS" --memory "$MEMORY" --disk "$DISK" --cloud-init ./template/k8s-rancher.yaml
 
-echo "Multipass instance '$NAME' created successfully."
+# Access the instance to retrieve the Rancher container password
+log "Retrieving Rancher initial password..."
+multipass exec "$NAME" -- bash -c "
+    echo 'Waiting for Rancher container to initialize...'
+    until sudo docker ps | grep -q 'rancher/rancher'; do sleep 5; done
+    echo ''
+    echo 'Loading Bootstrap Password. Sleeping for 60 seconds to allow Rancher to initialize...'
+    sleep 60
+    sudo docker logs rancher-server 2>/dev/null | grep -A1 'Bootstrap Password:'
+    echo ''
+"
+
+RANCHER_HOST="https://$(get_ip_address "$NAME")"
+
+# Open Rancher URL in the default browser without blocking the script
+open "$RANCHER_HOST" &>/dev/null &
+
+log "Multipass instance '$NAME' created successfully."
+log "Access Rancher at: $RANCHER_HOST"
+
+
+
+
 

@@ -2,6 +2,8 @@
 
 set -e
 
+source ./scripts/log-utils
+
 # Default values
 DEFAULT_MASTER_MEM=2G
 DEFAULT_MASTER_CPUS=2
@@ -9,19 +11,6 @@ DEFAULT_MASTER_DISK=22G
 DEFAULT_WORKER_MEM=4G
 DEFAULT_WORKER_CPUS=2
 DEFAULT_WORKER_DISK=32G
-
-# Create temporary directory for logs
-mkdir -p ./.temp
-
-# Generate a unique log file name based on the current date and time
-LOG_FILE="./.temp/$(date +'%Y-%m-%d_%H-%M-%S').log"
-
-# Redirect output to log file and terminal
-exec > >(tee -a "$LOG_FILE") 2>&1
-
-log() {
-    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
-}
 
 # Function to display help
 display_help() {
@@ -63,8 +52,15 @@ get_ip_address() {
 # Function to generate HAProxy master server configuration
 config_master_ip_address() {
     local ip_address=$1
-    local index=$2
-    echo "    server k8s-master-${index} ${ip_address}:6443 check fall 3 rise 2"
+    local master_name=$2
+    echo "    server $master_name ${ip_address}:6443 check fall 3 rise 2"
+}
+
+# Function to generate HAProxy master server configuration
+config_internal_proxy_master_ip_address() {
+    local ip_address=$1
+    local master_name=$2
+    echo "    server $master_name ${ip_address}:30080 check fall 3 rise 2"
 }
 
 # Function to read and validate user input
@@ -153,12 +149,20 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+config_request() {
+#  # Validate required inputs
+#  [ -z "$BASE_NAME" ] && read_and_validate "Enter base name for the cluster: " BASE_NAME "^[a-zA-Z0-9_-]+$" "Example: k8s-cluster"
+#  [ -z "$CLUSTER_VERSION" ] && read_and_validate "Enter Kubernetes cluster version: " CLUSTER_VERSION "^[vV]?[0-9]+(\.[0-9]+)*$" "Example: v1.27"
+#  [ -z "$NUM_MASTERS" ] && read_and_validate "Enter number of master nodes: " NUM_MASTERS "^[0-9]+$" "Example: 3"
+#  [ -z "$NUM_WORKERS" ] && read_and_validate "Enter number of worker nodes: " NUM_WORKERS "^[0-9]+$" "Example: 3"
+  log "Creating Kubernetes cluster with $NUM_MASTERS master nodes and $NUM_WORKERS worker nodes"
+}
+
 # Validate required inputs
 [ -z "$BASE_NAME" ] && read_and_validate "Enter base name for the cluster: " BASE_NAME "^[a-zA-Z0-9_-]+$" "Example: k8s-cluster"
 [ -z "$CLUSTER_VERSION" ] && read_and_validate "Enter Kubernetes cluster version: " CLUSTER_VERSION "^[vV]?[0-9]+(\.[0-9]+)*$" "Example: v1.27"
 [ -z "$NUM_MASTERS" ] && read_and_validate "Enter number of master nodes: " NUM_MASTERS "^[0-9]+$" "Example: 3"
 [ -z "$NUM_WORKERS" ] && read_and_validate "Enter number of worker nodes: " NUM_WORKERS "^[0-9]+$" "Example: 3"
-
 
 # Use default values if not provided
 MASTER_MEM=${MASTER_MEM:-$DEFAULT_MASTER_MEM}

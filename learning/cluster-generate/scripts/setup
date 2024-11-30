@@ -1,6 +1,10 @@
 #!/bin/bash
 
-source ./k8s-setup-utils
+set -e
+
+source ./scripts/k8s-utils
+
+setup_logs "cluster-generate"
 
 # Create master nodes
 for i in $(seq 1 "$NUM_MASTERS"); do
@@ -56,37 +60,63 @@ else
     multipass exec "$HAPROXY_NAME" -- sudo cp /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy-bk.cfg
 fi
 
-multipass transfer "${HAPROXY_NAME}:/etc/haproxy/haproxy.cfg" "./.temp/haproxy.cfg"
+HAPROXY_CFG_DIR_PATH="./.temp/$(date +'%Y_%m_%d_%H_%M_%S')/"
+
+mkdir -p "$HAPROXY_CFG_DIR_PATH"
+
+HAPROXY_CFG_PATH="${HAPROXY_CFG_DIR_PATH}haproxy.cfg"
+
+log "Loading HAProxy configuration from $HAPROXY_NAME to $HAPROXY_CFG_PATH"
+multipass transfer "${HAPROXY_NAME}:/etc/haproxy/haproxy-bk.cfg" "${HAPROXY_CFG_PATH}"
 
 # Get HAProxy IP address
 log "HAProxy installed on $HAPROXY_NAME"
 HAPROXY_IP=$(get_ip_address "$HAPROXY_NAME")
 
 echo "
-# K8s config
+# K8s proxy
 frontend kubernetes
     mode tcp
-# shellcheck disable=SC2086
     bind $HAPROXY_IP:6443
     option tcplog
-    default_backend k8s-masters
+    default_backend ${BASE_NAME}-masters-${CLUSTER_VERSION}
 
-backend k8s-masters
+backend ${BASE_NAME}-masters-${CLUSTER_VERSION}
     mode tcp
     balance roundrobin
-    option tcp-check
-" >> ./.temp/haproxy.cfg
+    option tcp-check" >> "${HAPROXY_CFG_PATH}"
 
 log "$HAPROXY_NAME:: Updating HAProxy configuration"
 
-log $(cat ./.temp/haproxy.cfg)
-
 # Add master nodes to HAProxy configuration
 log "Setting up masters in HAProxy configuration"
+
 for i in "${!MASTER_NODES[@]}"; do
     MASTER_IP=$(get_ip_address "${MASTER_NODES[$i]}")
-    config_master_ip_address "$MASTER_IP" "$i" | log "Adding master ${MASTER_NODES[$i]}/$MASTER_IP to HAProxy configuration"
-    config_master_ip_address "$MASTER_IP" "$i" | tee -a ./.temp/haproxy.cfg
+    log "Adding master ${MASTER_NODES[$i]}/$MASTER_IP to HAProxy configuration"
+    config_master_ip_address "$MASTER_IP" "${MASTER_NODES[$i]}" | tee -a "${HAPROXY_CFG_PATH}"
+done
+
+echo "
+# K8s internal proxy
+frontend internal_proxy
+    mode http
+    bind $HAPROXY_IP:80
+    option httplog
+    redirect scheme http code 301 if { hdr(Host) -i $HAPROXY_IP }
+    default_backend ${BASE_NAME}-internal-proxy-${CLUSTER_VERSION}
+
+backend ${BASE_NAME}-internal-proxy-${CLUSTER_VERSION}
+    mode http
+    balance roundrobin
+    option tcp-check" >> "${HAPROXY_CFG_PATH}"
+
+# Add master nodes to HAProxy internal proxy configuration
+log "Setting up masters in HAProxy internal proxy configuration"
+for i in "${!MASTER_NODES[@]}"; do
+    MASTER_IP=$(get_ip_address "${MASTER_NODES[$i]}")
+    log "Adding master ${MASTER_NODES[$i]}/$MASTER_IP to HAProxy internal proxy configuration"
+    config_internal_proxy_master_ip_address "$MASTER_IP" "${MASTER_NODES[$i]}" | tee -a "${HAPROXY_CFG_PATH}"
 done
 
 # Update /etc/hosts for all nodes
@@ -96,7 +126,7 @@ for node in "${MASTER_NODES[@]}" "${WORKER_NODES[@]}"; do
     multipass exec "$node" -- bash -c "echo '${HAPROXY_IP} ${HAPROXY_NAME}' | sudo tee -a /etc/hosts"
 done
 
-multipass transfer "./.temp/haproxy.cfg" "${HAPROXY_NAME}:/tmp/haproxy.cfg"
+multipass transfer "${HAPROXY_CFG_PATH}" "${HAPROXY_NAME}:/tmp/haproxy.cfg"
 
 multipass exec "$HAPROXY_NAME" -- bash -c "
     sudo mv /tmp/haproxy.cfg /etc/haproxy/haproxy.cfg
@@ -111,7 +141,7 @@ for i in $(seq 1 "$NUM_MASTERS"); do
     multipass exec "$MASTER_NAME" -- sudo kubeadm config images pull
 done
 
-echo "#\!/bin/bash
+echo "#!/bin/bash
 
 set -e
 
@@ -134,7 +164,19 @@ multipass transfer "./.temp/master-setup" "${BASE_NAME}-master-1-${CLUSTER_VERSI
 multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo chmod +x /tmp/master-setup
 # Run the script with sudo
 multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo /tmp/master-setup
+multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo cat /root/.kube/config > ./.temp/"$(date +'%Y-%m-%d %H:%M:%S')-${BASE_NAME}-master-1-${CLUSTER_VERSION}"-kube-config.yaml
+
 #multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo kubeadm token create --print-join-command --control-plane > /tmp/control-plane-join.sh
 #multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo kubeadm token create --print-join-command > /tmp/worker-join.sh
 
+# Logg masters and haproxy nodes ip addresses
+log "Masters:"
+for i in "${!MASTER_NODES[@]}"; do
+    MASTER_IP=$(get_ip_address "${MASTER_NODES[$i]}")
+    log "${MASTER_NODES[$i]}: $MASTER_IP"
+done
+
+log "HAProxy: $HAPROXY_NAME: $HAPROXY_IP"
+
 log "Cluster [${BASE_NAME}-${CLUSTER_VERSION}] setup is complete."
+

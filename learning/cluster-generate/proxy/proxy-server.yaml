@@ -1,0 +1,102 @@
+# ConfigMap for NGINX configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: default
+data:
+  nginx.conf: |
+    events {}
+    http {
+        server {
+            listen 80;
+
+            location ~ ^/api/(?<service_name>[a-zA-Z0-9_-]+)/(?<service_version>[a-zA-Z0-9_-]+)/ {
+                proxy_pass http://$service_name:8080;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Service-Name $service_name;
+                proxy_set_header X-Service-Version $service_version;
+            }
+
+            location / {
+                return 404;
+            }
+        }
+    }
+
+
+---
+
+# Deployment for the proxy
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxy-service
+  namespace: default
+  labels:
+    app: proxy-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: proxy-service
+  template:
+    metadata:
+      labels:
+        app: proxy-service
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              name: nginx-config
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: nginx-config
+
+---
+
+# NodePort Service for the proxy
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxy-service
+  namespace: default
+spec:
+  type: NodePort
+  ports:
+    - port: 80          # External port
+      targetPort: 80     # Port in the container
+      nodePort: 30080    # Fixed NodePort for external access
+  selector:
+    app: proxy-service
+
+---
+
+# Ingress for hostname-based routing
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: proxy-ingress
+  namespace: default
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx # Specify the ingress class
+  rules:
+    - host: k8s.learning.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: proxy-service
+                port:
+                  number: 80
