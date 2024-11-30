@@ -10,7 +10,9 @@ write_files:
     append: true
 runcmd:
   - sudo apt update
-  - sudo apt install -y docker.io curl
+  - sudo apt install -y curl
+  - curl -fsSL https://get.docker.com -o get-docker.sh
+  - sudo sh get-docker.sh
   - sudo systemctl enable docker
   - sudo systemctl start docker
   - sudo usermod -aG docker ubuntu

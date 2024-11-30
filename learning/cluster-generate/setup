@@ -38,7 +38,7 @@ done
 
 # Create HAProxy node
 HAPROXY_NAME="${BASE_NAME}-haproxy-${CLUSTER_VERSION}"
-log "[$(date '+%Y-%m-%d %H:%M:%S')] Checking HAProxy node: $HAPROXY_NAME"
+log "Checking HAProxy node: $HAPROXY_NAME"
 
 # Check if the HAProxy node already exists
 if multipass list | grep -q "$HAPROXY_NAME"; then
@@ -139,6 +139,6 @@ multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo chmod +x /tmp/
 # Run the script with sudo
 multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo /tmp/cluster-setup.sh
 #multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo kubeadm token create --print-join-command --control-plane > /tmp/control-plane-join.sh
-multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo kubeadm token create --print-join-command > /tmp/worker-join.sh
+#multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo kubeadm token create --print-join-command > /tmp/worker-join.sh
 
 log "Cluster [${BASE_NAME}-${CLUSTER_VERSION}] setup is complete."
