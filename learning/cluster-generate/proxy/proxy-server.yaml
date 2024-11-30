@@ -1,4 +1,3 @@
-# ConfigMap for NGINX configuration
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -7,20 +6,31 @@ metadata:
 data:
   nginx.conf: |
     events {}
+
     http {
+        log_format custom '$remote_addr - $remote_user [$time_local] "$request" '
+                          'path=$request_uri '
+                          'status=$status '
+                          'body_bytes_sent=$body_bytes_sent '
+                          '"$http_referer" '
+                          '"$http_user_agent" '
+                          '"$http_x_forwarded_for"';
+        access_log /var/log/nginx/access.log custom;
+
         server {
             listen 80;
 
-            location ~ ^/api/(?<service_name>[a-zA-Z0-9_-]+)/(?<service_version>[a-zA-Z0-9_-]+)/ {
-                proxy_pass http://$service_name:8080;
+            # Redirect all requests to file-server with a fixed version
+            location / {
+                # Capture the entire request URI after the first slash
+                rewrite ^/(.*)$ /api/file-server/v1/$1 break;
+
+                # Proxy to the file-server service
+                proxy_pass http://file-server:8080;
                 proxy_set_header Host $host;
                 proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Service-Name $service_name;
-                proxy_set_header X-Service-Version $service_version;
-            }
-
-            location / {
-                return 404;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Original-URI $request_uri;
             }
         }
     }
@@ -55,10 +65,15 @@ spec:
             - mountPath: /etc/nginx/nginx.conf
               subPath: nginx.conf
               name: nginx-config
+            - mountPath: /var/log/nginx
+              name: nginx-logs
+              readOnly: false
       volumes:
         - name: nginx-config
           configMap:
             name: nginx-config
+        - name: nginx-logs
+          emptyDir: { }
 
 ---
 
@@ -88,7 +103,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
-  ingressClassName: nginx # Specify the ingress class
+  ingressClassName: nginx
   rules:
     - host: k8s.learning.local
       http:
@@ -100,3 +115,4 @@ spec:
                 name: proxy-service
                 port:
                   number: 80
+
