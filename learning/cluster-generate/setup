@@ -111,33 +111,29 @@ for i in $(seq 1 "$NUM_MASTERS"); do
     multipass exec "$MASTER_NAME" -- sudo kubeadm config images pull
 done
 
-#for i in $(seq 1 "$NUM_WORKERS"); do
-#    WORKER_NAME="${BASE_NAME}-worker-${i}-${CLUSTER_VERSION}"
-#    log "Pulling container images for worker node: $WORKER_NAME"
-#    multipass exec "$WORKER_NAME" -- sudo kubeadm config images pull
-#done
-
-echo "#!/bin/bash
+echo "#\!/bin/bash
 
 set -e
 
 # Pull container images for each master node
 sudo kubeadm init --control-plane-endpoint $HAPROXY_NAME:6443 --upload-certs
-sudo kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/weave-daemonset-k8s.yaml
 
-sudo mkdir -p $HOME/.kube
-sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
+sudo mkdir -p \$HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf \$HOME/.kube/config
+sudo chown \$(id -u):\$(id -g) \$HOME/.kube/config
 
-" > ./.temp/cluster-setup.sh
+echo \"\"
+echo \"\"
+kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/weave-daemonset-k8s.yaml
+" > ./.temp/master-setup
 
-# Transfer the cluster-setup.sh script to the first master node
-multipass transfer "./.temp/cluster-setup.sh" "${BASE_NAME}-master-1-${CLUSTER_VERSION}:/tmp/cluster-setup.sh"
+# Transfer the master-setup script to the first master node
+multipass transfer "./.temp/master-setup" "${BASE_NAME}-master-1-${CLUSTER_VERSION}:/tmp/master-setup"
 
 # Make the script executable
-multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo chmod +x /tmp/cluster-setup.sh
+multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo chmod +x /tmp/master-setup
 # Run the script with sudo
-multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo /tmp/cluster-setup.sh
+multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo /tmp/master-setup
 #multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo kubeadm token create --print-join-command --control-plane > /tmp/control-plane-join.sh
 #multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo kubeadm token create --print-join-command > /tmp/worker-join.sh
 

@@ -4,9 +4,11 @@ write_files:
   - path: /etc/bash.bashrc
     content: |
       #custom
-    
-      alias kgp='kubectl get pods'
-      alias kgs='kubectl get svc'
+      export KUBECONFIG=/etc/kubernetes/admin.conf
+      alias kgp='sudo kubectl get pods -o wide'
+      alias kgs='sudo kubectl get svc -o wide'
+      alias kgn='sudo kubectl get nodes -o wide'
+      alias kctl='sudo kubectl'
     append: true
 runcmd:
   - sudo apt update
