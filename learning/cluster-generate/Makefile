@@ -44,4 +44,10 @@ check-ingress:
 	echo "Endpoints:"
 	kubectl get endpoints ingress-nginx-controller-admission -n ingress-nginx
 
+debug-up:
+	kubectl delete pod debug-pod || true
+	kubectl run debug-pod --image=busybox --restart=Never -- sleep 36000 || true
+	sleep 15
+	kubectl exec -it debug-pod -- sh
+
 

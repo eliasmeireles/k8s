@@ -1,11 +1,17 @@
 #!/bin/bash
 
+EXECUTION_TIME="$(date +'%Y-%m-%d_%H_%M_%S')"
 # Create temporary directory for logs
-mkdir -p ./.temp
+TEMP_DIR="./.temp/"
+
+mkdir -p "$TEMP_DIR"
 
 setup_logs() {
+  TEMP_DIR="./.temp/$1/${EXECUTION_TIME}"
+  mkdir -p "$TEMP_DIR"
+
   # Generate a unique log file name based on the current date and time
-  LOG_FILE="./.temp/$1-$(date +'%Y-%m-%d_%H-%M-%S').log"
+  LOG_FILE="$TEMP_DIR/$1.log"
 
   # Redirect output to log file and terminal
   exec > >(tee -a "$LOG_FILE") 2>&1

@@ -149,13 +149,92 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-config_request() {
-#  # Validate required inputs
-#  [ -z "$BASE_NAME" ] && read_and_validate "Enter base name for the cluster: " BASE_NAME "^[a-zA-Z0-9_-]+$" "Example: k8s-cluster"
-#  [ -z "$CLUSTER_VERSION" ] && read_and_validate "Enter Kubernetes cluster version: " CLUSTER_VERSION "^[vV]?[0-9]+(\.[0-9]+)*$" "Example: v1.27"
-#  [ -z "$NUM_MASTERS" ] && read_and_validate "Enter number of master nodes: " NUM_MASTERS "^[0-9]+$" "Example: 3"
-#  [ -z "$NUM_WORKERS" ] && read_and_validate "Enter number of worker nodes: " NUM_WORKERS "^[0-9]+$" "Example: 3"
-  log "Creating Kubernetes cluster with $NUM_MASTERS master nodes and $NUM_WORKERS worker nodes"
+master_node_config() {
+  echo "#!/bin/bash
+
+  set -e
+
+  # Pull container images for each master node
+  sudo kubeadm init --control-plane-endpoint $HAPROXY_NAME:6443 --upload-certs
+
+  sudo mkdir -p \$HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf \$HOME/.kube/config
+  sudo chown \$(id -u):\$(id -g) \$HOME/.kube/config
+
+  echo \"\"
+  echo \"\"
+  kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/weave-daemonset-k8s.yaml
+  kubectl create namespace development
+  kubectl config set-context --current --namespace=development
+  echo \"Adding ingress-nginx\"
+  kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
+  " > "${TEMP_DIR}"/master-setup
+
+  # Transfer the master-setup script to the first master node
+  multipass transfer "${TEMP_DIR}/master-setup" "${BASE_NAME}-master-1-${CLUSTER_VERSION}:/tmp/master-setup"
+
+  # Make the script executable
+  multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo chmod +x /tmp/master-setup
+  # Run the script with sudo
+  multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo /tmp/master-setup
+  multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo cat /root/.kube/config > "${TEMP_DIR}/config"
+}
+
+utils_generate() {
+  echo "#!/bin/bash
+
+set -e
+
+mkdir -p \$HOME/.kube
+mv \$HOME/.kube/config \$HOME/.kube/config-bkp-from-$(date +'%Y-%m-%d %H-%M-%S') || true
+cp ${TEMP_DIR}/config \$HOME/.kube/config
+chmod 644 \$HOME/.kube/config
+
+" > "${TEMP_DIR}"/kube-config
+
+chmod +x "${TEMP_DIR}"/kube-config
+
+  log "Change kubectl context to the new cluster by running the following command:
+    ${TEMP_DIR}/kube-config
+  "
+
+  echo "#!/bin/bash
+
+set -e
+sudo echo $HAPROXY_IP ${HAPROXY_NAME} | sudo tee -a /etc/hosts
+sudo cat /etc/hosts
+
+" > "${TEMP_DIR}"/hosts-config
+
+  chmod +x "${TEMP_DIR}"/hosts-config
+
+  log "To update the /etc/hosts file on your local machine, run the following command:
+    ${TEMP_DIR}/hosts-config
+  "
+}
+
+config_haproxy_internal_proxy() {
+  echo "
+# K8s internal proxy
+frontend internal_proxy
+    mode http
+    bind $HAPROXY_IP:80
+    option httplog
+    redirect scheme http code 301 if { hdr(Host) -i $HAPROXY_IP }
+    default_backend ${BASE_NAME}-internal-proxy-${CLUSTER_VERSION}
+
+backend ${BASE_NAME}-internal-proxy-${CLUSTER_VERSION}
+    mode http
+    balance roundrobin
+    option tcp-check" >> "${HAPROXY_CFG_PATH}"
+
+  # Add master nodes to HAProxy internal proxy configuration
+  log "Setting up masters in HAProxy internal proxy configuration"
+  for i in "${!MASTER_NODES[@]}"; do
+      MASTER_IP=$(get_ip_address "${MASTER_NODES[$i]}")
+      log "Adding master ${MASTER_NODES[$i]}/$MASTER_IP to HAProxy internal proxy configuration"
+      config_internal_proxy_master_ip_address "$MASTER_IP" "${MASTER_NODES[$i]}" | tee -a "${HAPROXY_CFG_PATH}"
+  done
 }
 
 # Validate required inputs
@@ -163,6 +242,7 @@ config_request() {
 [ -z "$CLUSTER_VERSION" ] && read_and_validate "Enter Kubernetes cluster version: " CLUSTER_VERSION "^[vV]?[0-9]+(\.[0-9]+)*$" "Example: v1.27"
 [ -z "$NUM_MASTERS" ] && read_and_validate "Enter number of master nodes: " NUM_MASTERS "^[0-9]+$" "Example: 3"
 [ -z "$NUM_WORKERS" ] && read_and_validate "Enter number of worker nodes: " NUM_WORKERS "^[0-9]+$" "Example: 3"
+log "Creating Kubernetes cluster with $NUM_MASTERS master nodes and $NUM_WORKERS worker nodes"
 
 # Use default values if not provided
 MASTER_MEM=${MASTER_MEM:-$DEFAULT_MASTER_MEM}

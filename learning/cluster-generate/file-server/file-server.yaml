@@ -1,0 +1,125 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: file-server
+  labels:
+    app: file-server
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: file-server
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+      labels:
+        app: file-server
+    spec:
+      serviceAccountName: default
+      containers:
+        - name: file-server
+          image: "eliasmeireles/file-server:v1"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /api/file-server/v1/health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/file-server/v1/health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          resources:
+            limits:
+              cpu: 1
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations: [ ]
+      affinity: { }
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: file-server
+  labels:
+    app: file-server
+spec:
+  type: ClusterIP # Changed from LoadBalancer to ClusterIP for ingress compatibility
+  ports:
+    - port: 8080
+      targetPort: 8080
+  selector:
+    app: file-server
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: file-server-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: k8s.learning.local
+      http:
+        paths:
+          - path: /api/file-server/v1/
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: file-server
+                port:
+                  number: 8080
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: file-server
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: file-server
+  minReplicas: 5
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-file-server-traffic
+  labels:
+    app: file-server
+spec:
+  podSelector:
+    matchLabels:
+      app: file-server
+  ingress:
+    - from:
+        - namespaceSelector: { }
+          podSelector: { }
+      ports:
+        - protocol: TCP
+          port: 8080

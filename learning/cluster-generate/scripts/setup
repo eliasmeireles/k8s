@@ -60,11 +60,7 @@ else
     multipass exec "$HAPROXY_NAME" -- sudo cp /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy-bk.cfg
 fi
 
-HAPROXY_CFG_DIR_PATH="./.temp/$(date +'%Y_%m_%d_%H_%M_%S')/"
-
-mkdir -p "$HAPROXY_CFG_DIR_PATH"
-
-HAPROXY_CFG_PATH="${HAPROXY_CFG_DIR_PATH}haproxy.cfg"
+HAPROXY_CFG_PATH="${TEMP_DIR}/haproxy.cfg"
 
 log "Loading HAProxy configuration from $HAPROXY_NAME to $HAPROXY_CFG_PATH"
 multipass transfer "${HAPROXY_NAME}:/etc/haproxy/haproxy-bk.cfg" "${HAPROXY_CFG_PATH}"
@@ -97,27 +93,7 @@ for i in "${!MASTER_NODES[@]}"; do
     config_master_ip_address "$MASTER_IP" "${MASTER_NODES[$i]}" | tee -a "${HAPROXY_CFG_PATH}"
 done
 
-echo "
-# K8s internal proxy
-frontend internal_proxy
-    mode http
-    bind $HAPROXY_IP:80
-    option httplog
-    redirect scheme http code 301 if { hdr(Host) -i $HAPROXY_IP }
-    default_backend ${BASE_NAME}-internal-proxy-${CLUSTER_VERSION}
-
-backend ${BASE_NAME}-internal-proxy-${CLUSTER_VERSION}
-    mode http
-    balance roundrobin
-    option tcp-check" >> "${HAPROXY_CFG_PATH}"
-
-# Add master nodes to HAProxy internal proxy configuration
-log "Setting up masters in HAProxy internal proxy configuration"
-for i in "${!MASTER_NODES[@]}"; do
-    MASTER_IP=$(get_ip_address "${MASTER_NODES[$i]}")
-    log "Adding master ${MASTER_NODES[$i]}/$MASTER_IP to HAProxy internal proxy configuration"
-    config_internal_proxy_master_ip_address "$MASTER_IP" "${MASTER_NODES[$i]}" | tee -a "${HAPROXY_CFG_PATH}"
-done
+config_haproxy_internal_proxy
 
 # Update /etc/hosts for all nodes
 log "Setting up workers in HAProxy configuration"
@@ -141,33 +117,7 @@ for i in $(seq 1 "$NUM_MASTERS"); do
     multipass exec "$MASTER_NAME" -- sudo kubeadm config images pull
 done
 
-echo "#!/bin/bash
-
-set -e
-
-# Pull container images for each master node
-sudo kubeadm init --control-plane-endpoint $HAPROXY_NAME:6443 --upload-certs
-
-sudo mkdir -p \$HOME/.kube
-sudo cp -i /etc/kubernetes/admin.conf \$HOME/.kube/config
-sudo chown \$(id -u):\$(id -g) \$HOME/.kube/config
-
-echo \"\"
-echo \"\"
-kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/weave-daemonset-k8s.yaml
-" > ./.temp/master-setup
-
-# Transfer the master-setup script to the first master node
-multipass transfer "./.temp/master-setup" "${BASE_NAME}-master-1-${CLUSTER_VERSION}:/tmp/master-setup"
-
-# Make the script executable
-multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo chmod +x /tmp/master-setup
-# Run the script with sudo
-multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo /tmp/master-setup
-multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo cat /root/.kube/config > ./.temp/"$(date +'%Y-%m-%d %H:%M:%S')-${BASE_NAME}-master-1-${CLUSTER_VERSION}"-kube-config.yaml
-
-#multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo kubeadm token create --print-join-command --control-plane > /tmp/control-plane-join.sh
-#multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo kubeadm token create --print-join-command > /tmp/worker-join.sh
+master_node_config
 
 # Logg masters and haproxy nodes ip addresses
 log "Masters:"
@@ -179,4 +129,10 @@ done
 log "HAProxy: $HAPROXY_NAME: $HAPROXY_IP"
 
 log "Cluster [${BASE_NAME}-${CLUSTER_VERSION}] setup is complete."
+
+utils_generate
+
+
+
+
 
