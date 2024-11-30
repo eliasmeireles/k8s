@@ -1,12 +1,5 @@
 package_update: true
 package_upgrade: true
-packages:
-  - curl
-  - gpg
-  - apt-transport-https
-  - ca-certificates
-  - net-tools
-  - containerd.io
 write_files:
   - path: /etc/bash.bashrc
     content: |
@@ -16,8 +9,11 @@ write_files:
       alias kgs='kubectl get svc'
     append: true
 runcmd:
-  - curl -fsSL https://get.docker.com -o get-docker.sh
-  - sudo sh get-docker.sh
+  - sudo apt update
+  - sudo apt install -y docker.io curl
+  - sudo systemctl enable docker
+  - sudo systemctl start docker
+  - sudo usermod -aG docker ubuntu
   - |
     # Load necessary kernel modules
     cat <<EOF | sudo tee /etc/modules-load.d/containerd.conf

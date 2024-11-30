@@ -19,6 +19,10 @@ LOG_FILE="./.temp/$(date +'%Y-%m-%d_%H-%M-%S').log"
 # Redirect output to log file and terminal
 exec > >(tee -a "$LOG_FILE") 2>&1
 
+log() {
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
+}
+
 # Function to display help
 display_help() {
     echo "Usage: $0 [options]"
@@ -61,12 +65,6 @@ config_master_ip_address() {
     local ip_address=$1
     local index=$2
     echo "    server k8s-master-${index} ${ip_address}:6443 check fall 3 rise 2"
-}
-
-# Function to generate HAProxy bind configuration
-config_haproxy_ip_address() {
-    local ip_address=$1
-    echo "    bind ${ip_address}:6443"
 }
 
 # Function to read and validate user input

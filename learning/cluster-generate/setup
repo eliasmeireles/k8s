@@ -5,8 +5,16 @@ source ./k8s-setup-utils
 # Create master nodes
 for i in $(seq 1 "$NUM_MASTERS"); do
     MASTER_NAME="${BASE_NAME}-master-${i}-${CLUSTER_VERSION}"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Creating master node: $MASTER_NAME"
-    multipass launch --name "$MASTER_NAME" --memory "$MASTER_MEM" --cpus "$MASTER_CPUS" --disk "$MASTER_DISK" --cloud-init ./template/k8s-base.yaml
+    log "Checking master node: $MASTER_NAME"
+
+    # Check if the node already exists
+    if multipass list | grep -q "$MASTER_NAME"; then
+        log "Master node $MASTER_NAME already exists. Skipping creation."
+    else
+        log "Creating master node: $MASTER_NAME"
+        multipass launch --name "$MASTER_NAME" --memory "$MASTER_MEM" --cpus "$MASTER_CPUS" --disk "$MASTER_DISK" --cloud-init ./template/k8s-base.yaml
+    fi
+
     # shellcheck disable=SC2206
     MASTER_NODES+=($MASTER_NAME)
 done
@@ -14,35 +22,52 @@ done
 # Create worker nodes
 for i in $(seq 1 "$NUM_WORKERS"); do
     WORKER_NAME="${BASE_NAME}-worker-${i}-${CLUSTER_VERSION}"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Creating worker node: $WORKER_NAME"
-    multipass launch --name "$WORKER_NAME" --memory "$WORKER_MEM" --cpus "$WORKER_CPUS" --disk "$WORKER_DISK" --cloud-init ./template/k8s-base.yaml
+    log "Checking worker node: $WORKER_NAME"
+
+    # Check if the node already exists
+    if multipass list | grep -q "$WORKER_NAME"; then
+        log "Worker node $WORKER_NAME already exists. Skipping creation."
+    else
+        log "Creating worker node: $WORKER_NAME"
+        multipass launch --name "$WORKER_NAME" --memory "$WORKER_MEM" --cpus "$WORKER_CPUS" --disk "$WORKER_DISK" --cloud-init ./template/k8s-base.yaml
+    fi
+
     # shellcheck disable=SC2206
     WORKER_NODES+=($WORKER_NAME)
 done
 
 # Create HAProxy node
 HAPROXY_NAME="${BASE_NAME}-haproxy-${CLUSTER_VERSION}"
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Creating HAProxy node: $HAPROXY_NAME"
-multipass launch --name "$HAPROXY_NAME" --memory 1G --cpus 1 --disk 5G
+log "[$(date '+%Y-%m-%d %H:%M:%S')] Checking HAProxy node: $HAPROXY_NAME"
 
-## Install HAProxy
-multipass exec "$HAPROXY_NAME" -- bash -c "
-    sudo apt-get update && sudo apt-get install -y haproxy
-"
+# Check if the HAProxy node already exists
+if multipass list | grep -q "$HAPROXY_NAME"; then
+    log "HAProxy node $HAPROXY_NAME already exists. Skipping creation."
+else
+    log "Creating HAProxy node: $HAPROXY_NAME"
+    multipass launch --name "$HAPROXY_NAME" --memory 1G --cpus 1 --disk 5G
+    ## Install HAProxy
+    multipass exec "$HAPROXY_NAME" -- bash -c "
+        sudo apt-get update && sudo apt-get install -y haproxy
+    "
+
+    log "$HAPROXY_NAME:: Generating HAProxy configuration"
+    # Generate HAProxy configuration
+    multipass exec "$HAPROXY_NAME" -- sudo cp /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy-bk.cfg
+fi
+
+multipass transfer "${HAPROXY_NAME}:/etc/haproxy/haproxy.cfg" "./.temp/haproxy.cfg"
 
 # Get HAProxy IP address
+log "HAProxy installed on $HAPROXY_NAME"
 HAPROXY_IP=$(get_ip_address "$HAPROXY_NAME")
 
-# Generate HAProxy configuration
-multipass exec "$HAPROXY_NAME" -- sudo cp /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy-bk.cfg
-
-cat <<EOF | multipass exec "$HAPROXY_NAME" -- sudo tee -a /etc/haproxy/haproxy.cfg > /dev/null
-
+echo "
 # K8s config
 frontend kubernetes
     mode tcp
 # shellcheck disable=SC2086
-$(config_haproxy_ip_address "$HAPROXY_IP")
+    bind $HAPROXY_IP:6443
     option tcplog
     default_backend k8s-masters
 
@@ -50,33 +75,56 @@ backend k8s-masters
     mode tcp
     balance roundrobin
     option tcp-check
-EOF
+" >> ./.temp/haproxy.cfg
+
+log "$HAPROXY_NAME:: Updating HAProxy configuration"
+
+log $(cat ./.temp/haproxy.cfg)
 
 # Add master nodes to HAProxy configuration
+log "Setting up masters in HAProxy configuration"
 for i in "${!MASTER_NODES[@]}"; do
     MASTER_IP=$(get_ip_address "${MASTER_NODES[$i]}")
-    config_master_ip_address "$MASTER_IP" "$i" | multipass exec "$HAPROXY_NAME" -- sudo tee -a /etc/haproxy/haproxy.cfg > /dev/null
+    config_master_ip_address "$MASTER_IP" "$i" | log "Adding master ${MASTER_NODES[$i]}/$MASTER_IP to HAProxy configuration"
+    config_master_ip_address "$MASTER_IP" "$i" | tee -a ./.temp/haproxy.cfg
 done
 
+
 # Update /etc/hosts for all nodes
+log "Setting up workers in HAProxy configuration"
 for node in "${MASTER_NODES[@]}" "${WORKER_NODES[@]}"; do
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Updating /etc/hosts on $node"
+    log "Updating /etc/hosts on $node"
     multipass exec "$node" -- bash -c "echo '${HAPROXY_IP} ${HAPROXY_NAME}' | sudo tee -a /etc/hosts"
 done
 
-# Restart HAProxy to apply the new configuration
-multipass exec "$HAPROXY_NAME" -- sudo systemctl restart haproxy
+multipass transfer "./.temp/haproxy.cfg" "${HAPROXY_NAME}:/tmp/haproxy.cfg"
 
-multipass exec "$HAPROXY_NAME" -- sudo systemctl status haproxy --no-pager
-
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Cluster setup is complete."
-
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Run 'sudo su' into a master node, after and run commands below to initialize the cluster
-
-    kubeadm init --control-plane-endpoint $HAPROXY_NAME:6443 --upload-certs
-
-    kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/weave-daemonset-k8s.yaml
-
-    kubectl get nodes
+multipass exec "$HAPROXY_NAME" -- bash -c "
+    sudo mv /tmp/haproxy.cfg /etc/haproxy/haproxy.cfg
+    sudo chown root:root /etc/haproxy/haproxy.cfg
+    sudo chmod 644 /etc/haproxy/haproxy.cfg
+    sudo systemctl restart haproxy
 "
 
+log "Cluster [${BASE_NAME}-${CLUSTER_VERSION}] setup is complete."
+
+echo "
+#!/bin/bash
+
+set -e
+
+sudo kubeadm init --control-plane-endpoint $HAPROXY_NAME:6443 --upload-certs
+sudo kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/weave-daemonset-k8s.yaml
+
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+" > ./.temp/cluster-setup.sh
+
+# Transfer the cluster-setup.sh script to the first master node
+multipass transfer "./.temp/cluster-setup.sh" "${BASE_NAME}-master-1-${CLUSTER_VERSION}:/tmp/cluster-setup.sh"
+# Make the script executable
+multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo chmod +x /tmp/cluster-setup.sh
+# Run the script with sudo
+multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo /tmp/cluster-setup.sh
