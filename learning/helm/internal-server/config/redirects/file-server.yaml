@@ -3,7 +3,7 @@ config:
   serviceName: "/api/file-server/v1/"
   baseHost:
     - "internal-server"
-    - "k8s.local.service"
+    - "k8s.learning.local"
   targetHost: "http://file-server:8080/"
   pathRewrites:
     - regex: "/"

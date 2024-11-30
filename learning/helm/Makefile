@@ -15,12 +15,14 @@ app-update:
 internal-server-up:
 	make internal-server-down
 	kubectl apply -f internal-server/config-map.yaml
+	kubectl apply -f persistent-volume-claim.yaml
 	./deploy --release-name internal-server
 	make show-pods
 
 internal-server-down:
-	kubectl delete -f internal-server/config-map.yaml || true
 	./uninstall --release-name internal-server || true
+	kubectl delete -f internal-server/config-map.yaml || true
+	kubectl delete -f persistent-volume-claim.yaml
 	make show-pods
 
 app-up:
