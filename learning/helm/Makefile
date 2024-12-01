@@ -13,7 +13,7 @@ app-update:
 	make show-pods
 
 internal-server-up:
-	make internal-server-down
+	make internal-server-down || true
 	kubectl apply -f internal-server/config-map.yaml
 	kubectl apply -f persistent-volume-claim.yaml
 	./deploy --release-name internal-server
