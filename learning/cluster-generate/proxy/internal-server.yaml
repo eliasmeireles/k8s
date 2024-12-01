@@ -1,0 +1,198 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: storage-pv
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: manual
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/data/config
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: storage-pv
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  volumeMode: Filesystem
+  storageClassName: manual
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: proxy-server-config
+data:
+  CONFIG_BASE_PATH: "/mnt/internal-server/config"
+  HTTPS_ENABLE: "false"
+  LOGSTASH_URI: "logstash:5000"
+  LOGSTASH_ENABLED: "false"
+
+---
+
+# Source: internal-server/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: internal-server
+  labels:
+    app: internal-server
+    app.kubernetes.io/name: internal-server
+    app.kubernetes.io/instance: internal-server
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+---
+# Source: internal-server/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: internal-server
+  labels:
+    app: internal-server
+    app.kubernetes.io/name: internal-server
+    app.kubernetes.io/instance: internal-server
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+      nodePort: 30080
+  selector:
+    app: internal-server
+    app.kubernetes.io/name: internal-server
+    app.kubernetes.io/instance: internal-server
+---
+# Source: internal-server/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: internal-server
+  labels:
+    app: internal-server
+    app.kubernetes.io/name: internal-server
+    app.kubernetes.io/instance: internal-server
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selector:
+    matchLabels:
+      app: internal-server
+      app.kubernetes.io/name: internal-server
+      app.kubernetes.io/instance: internal-server
+  template:
+    metadata:
+      annotations:
+        prometheus.io/port: "8080"
+        prometheus.io/scrape: "true"
+      labels:
+        app: internal-server
+        app.kubernetes.io/name: internal-server
+        app.kubernetes.io/instance: internal-server
+    spec:
+      serviceAccountName: internal-server
+      securityContext:
+        {}
+      initContainers:
+        - name: init-copy-config
+          image: eliasmeireles/busybox:latest
+          imagePullPolicy: Always
+          command:
+            - /bin/sh
+            - -c
+            - |
+              sh setup
+
+          volumeMounts:
+            - name: storage-pv
+              mountPath: /mnt
+
+      containers:
+        - name: internal-server
+          securityContext:
+            {}
+          image: "eliasmeireles/proxy-server:1"
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: proxy-server-config
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 800m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: storage-pv
+              mountPath: /mnt
+      volumes:
+        - name: storage-pv
+          persistentVolumeClaim:
+            claimName: storage-pv
+      nodeSelector:
+        kubernetes.io/os: linux
+---
+# Source: internal-server/templates/hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: internal-server
+  labels:
+    app: internal-server
+    app.kubernetes.io/name: internal-server
+    app.kubernetes.io/instance: internal-server
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: internal-server
+  minReplicas: 5
+  maxReplicas: 10
+---
+# Source: internal-server/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: internal-server
+  labels:
+    app: internal-server
+    app.kubernetes.io/name: internal-server
+    app.kubernetes.io/instance: internal-server
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: "k8s.learning.local"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: proxy-service
+                port:
+                  number: 80
+

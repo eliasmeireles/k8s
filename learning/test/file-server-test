@@ -1,0 +1,90 @@
+#!/bin/bash
+
+# Exit on any error
+set -e
+
+# Default number of parallel requests
+DEFAULT_REQUESTS=100
+# Default max concurrent jobs
+MAX_CONCURRENT_JOBS=100
+
+# Function to display usage
+usage() {
+    echo "Usage: $0 [--total-request NUMBER] [--file-path PATH] [--max-concurrent NUMBER]"
+    echo "  --total-request: Total number of requests to make (default: $DEFAULT_REQUESTS)"
+    echo "  --file-path: Path to the PDF file (default: $(pwd)/test/50MB-TEST.pdf)"
+    echo "  --max-concurrent: Maximum number of concurrent uploads (default: $MAX_CONCURRENT_JOBS)"
+    exit 1
+}
+
+# Parse command-line arguments
+TOTAL_REQUESTS=$DEFAULT_REQUESTS
+FILE_PATH="${FILE_PATH:-$(pwd)/test/50MB-TEST.pdf}"
+MAX_CONCURRENT=$MAX_CONCURRENT_JOBS
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --total-request)
+            TOTAL_REQUESTS="$2"
+            shift 2
+            ;;
+        --file-path)
+            FILE_PATH="$2"
+            shift 2
+            ;;
+        --max-concurrent)
+            MAX_CONCURRENT="$2"
+            shift 2
+            ;;
+        --help)
+            usage
+            ;;
+        *)
+            echo "Unknown option: $1"
+            usage
+            ;;
+    esac
+done
+
+# Validate PDF path
+if [ -z "$FILE_PATH" ]; then
+    echo "Error: PDF path is required"
+    usage
+fi
+
+# Verify PDF file exists
+if [ ! -f "$FILE_PATH" ]; then
+    echo "Error: PDF file not found at $FILE_PATH"
+    exit 1
+fi
+
+# Function to upload file
+upload_file() {
+    local job_number=$1
+    curl --location 'http://k8s.learning.local/api/file-server/v1/file/upload?dirName=resource&fileName=example' \
+         --form "resource=@\"$FILE_PATH\"" \
+         --silent --show-error --fail
+    local exit_code=$?
+    echo "Upload job $job_number completed with exit code $exit_code"
+    return $exit_code
+}
+
+# Manage asynchronous requests
+job_count=0
+for i in $(seq 1 "$TOTAL_REQUESTS"); do
+    # Start the upload job in the background
+    upload_file "$i" &
+    job_count=$((job_count + 1))
+
+    # Check if we've reached the maximum concurrent jobs
+    if ((job_count >= MAX_CONCURRENT)); then
+        # Wait for at least one job to finish
+        wait -n
+        job_count=$((job_count - 1))
+    fi
+done
+
+# Wait for all remaining jobs to finish
+wait
+
+echo "All upload requests completed successfully!"

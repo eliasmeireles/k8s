@@ -5,7 +5,6 @@ metadata:
   labels:
     app: file-server
 spec:
-  replicas: 5
   selector:
     matchLabels:
       app: file-server
@@ -71,7 +70,7 @@ kind: Ingress
 metadata:
   name: file-server-ingress
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/rewrite-target: /api/file-server/v1/
 spec:
   rules:
     - host: k8s.learning.local
@@ -95,15 +94,15 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: file-server
-  minReplicas: 5
+  minReplicas: 1
   maxReplicas: 10
   metrics:
     - type: Resource
       resource:
-        name: cpu
+        name: memory
         target:
           type: Utilization
-          averageUtilization: 80
+          averageUtilization: 70
 
 ---
 apiVersion: networking.k8s.io/v1

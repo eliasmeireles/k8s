@@ -25,10 +25,10 @@ delete-file-server:
 	kubectl delete -f ./file-server/file-server.yaml
 
 deploy-proxy:
-	kubectl apply -f ./proxy/proxy-server.yaml
+	kubectl  apply -f proxy/internal-server.yaml
 
 delete-proxy:
-	kubectl delete -f ./proxy/proxy-server.yaml
+	kubectl delete -f proxy/internal-server.yaml
 
 add-nginx-ingress:
 	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
@@ -49,5 +49,15 @@ debug-up:
 	kubectl run debug-pod --image=busybox --restart=Never -- sleep 36000 || true
 	sleep 15
 	kubectl exec -it debug-pod -- sh
+
+internal-server-logs:
+	kubectl logs -f -l app=internal-server --prefix=true
+
+file-server-logs:
+	kubectl logs -f -l app=file-server --prefix=true
+
+file-server-test:
+	nohup bash -c 'for i in $(seq 1 100000); do curl -s -o /dev/null http://k8s.learning.local/api/file-server/v1/files & done' &
+
 
 

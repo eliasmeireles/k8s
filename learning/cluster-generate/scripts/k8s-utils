@@ -190,7 +190,10 @@ master_node_config() {
 
   join_worker_nodes
 
+  # Install Nginx Ingress Controller
   multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c "kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml"
+  # Install metrics server
+  multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c " kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml"
 }
 
 utils_generate() {
