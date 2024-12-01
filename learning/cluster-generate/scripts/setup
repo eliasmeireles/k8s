@@ -9,51 +9,75 @@ setup_logs "cluster-generate"
 # Arrays to store background process PIDs
 MASTER_PIDS=()
 WORKER_PIDS=()
+HAPROXY_PID=()
 
 # Function to launch master nodes in parallel
 launch_masters() {
     for i in $(seq 1 "$NUM_MASTERS"); do
-        (
-            MASTER_NAME="${BASE_NAME}-master-${i}-${CLUSTER_VERSION}"
-            log "Checking master node: $MASTER_NAME"
+      MASTER_NAME="${BASE_NAME}-master-${i}-${CLUSTER_VERSION}"
+      # shellcheck disable=SC2206
+      MASTER_NODES+=($MASTER_NAME)
+      (
+        log "Checking master node: $MASTER_NAME"
 
-            # Check if the node already exists
-            if multipass list | grep -q "$MASTER_NAME"; then
-                log "Master node $MASTER_NAME already exists. Skipping creation."
-            else
-                log "Creating master node: $MASTER_NAME"
-                multipass launch --name "$MASTER_NAME" --memory "$MASTER_MEM" --cpus "$MASTER_CPUS" --disk "$MASTER_DISK" --cloud-init ./template/k8s-master-node.yaml
-            fi
+        # Check if the node already exists
+        if multipass list | grep -q "$MASTER_NAME"; then
+            log "Master node $MASTER_NAME already exists. Skipping creation."
+        else
+            log "Creating master node: $MASTER_NAME"
+            multipass launch --verbose --name "$MASTER_NAME" --memory "$MASTER_MEM" --cpus "$MASTER_CPUS" --disk "$MASTER_DISK" --cloud-init ./template/k8s-master-node.yaml
+        fi
+      ) &
+      local PID
+      PID=$!
 
-            # Add the node to the array
-            # shellcheck disable=SC2206
-            MASTER_NODES+=($MASTER_NAME)
-        ) &
-        MASTER_PIDS+=($!)
+      log "$MASTER_NAME launcher running in pid: $PID"
+      MASTER_PIDS+=("$PID")
     done
 }
 
 # Function to launch worker nodes in parallel
 launch_workers() {
     for i in $(seq 1 "$NUM_WORKERS"); do
+        WORKER_NAME="${BASE_NAME}-worker-${i}-${CLUSTER_VERSION}"
+        # shellcheck disable=SC2206
+        WORKER_NODES+=($WORKER_NAME)
+        log "Checking worker node: $WORKER_NAME"
         (
-            WORKER_NAME="${BASE_NAME}-worker-${i}-${CLUSTER_VERSION}"
-            log "Checking worker node: $WORKER_NAME"
-
             # Check if the node already exists
             if multipass list | grep -q "$WORKER_NAME"; then
                 log "Worker node $WORKER_NAME already exists. Skipping creation."
             else
                 log "Creating worker node: $WORKER_NAME"
-                multipass launch --name "$WORKER_NAME" --memory "$WORKER_MEM" --cpus "$WORKER_CPUS" --disk "$WORKER_DISK" --cloud-init ./template/k8s-worker-node.yaml
+                multipass launch --verbose --name "$WORKER_NAME" --memory "$WORKER_MEM" --cpus "$WORKER_CPUS" --disk "$WORKER_DISK" --cloud-init ./template/k8s-worker-node.yaml
             fi
-
-            # Add the node to the array
-            # shellcheck disable=SC2206
-            WORKER_NODES+=($WORKER_NAME)
         ) &
-        WORKER_PIDS+=($!)
+        local PID
+        PID=$!
+
+        log "$WORKER_NAME launcher running in pid: $PID"
+         WORKER_PIDS+=($PID)
     done
+}
+
+# Create HAProxy node
+HAPROXY_NAME="${BASE_NAME}-haproxy-${CLUSTER_VERSION}"
+
+launch_haproxy() {
+  log "Checking HAProxy node: $HAPROXY_NAME"
+
+  # Check if the HAProxy node already exists
+  if multipass list | grep -qw "^$HAPROXY_NAME"; then
+      log "HAProxy node $HAPROXY_NAME already exists. Skipping creation."
+  else
+      log "Creating HAProxy node: $HAPROXY_NAME"
+      HAPROXY_LOG_FILE="${TEMP_DIR}/${HAPROXY_NAME}_launcher.log"
+      multipass launch --name "$HAPROXY_NAME" --memory 1G --cpus 1 --disk 5G --cloud-init ./template/k8s-haproxy.yaml > "$HAPROXY_LOG_FILE" 2>&1 &
+      local PID
+      PID=$!
+      log "$HAPROXY_NAME launcher running in pid: $PID"
+      HAPROXY_PID+=("$PID")
+  fi
 }
 
 # Wait for all master and worker node launches to complete
@@ -61,40 +85,50 @@ wait_for_node_launches() {
     # Wait for master nodes
     for pid in "${MASTER_PIDS[@]}"; do
         wait "$pid"
+        log "Master node creation process completed for pid: $pid"
     done
 
     # Wait for worker nodes
     for pid in "${WORKER_PIDS[@]}"; do
         wait "$pid"
+        log "Worker node creation process completed for pid: $pid"
+    done
+
+    # Wait for HAProxy node
+    for pid in "${HAPROXY_PID[@]}"; do
+        wait "$pid"
+        log "HAProxy node creation process completed for pid: $pid"
     done
 }
 
 # Main execution
 launch_masters
 launch_workers
+launch_haproxy
 wait_for_node_launches
 
+MASTER_PULLING_PIDS=()
 
-# Create HAProxy node
-HAPROXY_NAME="${BASE_NAME}-haproxy-${CLUSTER_VERSION}"
+for i in $(seq 1 "$NUM_MASTERS"); do
+    MASTER_NAME="${BASE_NAME}-master-${i}-${CLUSTER_VERSION}"
+    LOG_FILE="${TEMP_DIR}/${MASTER_NAME}_pull.log"
+    log "Pulling container images for master node: $MASTER_NAME"
+    # Run the command in the background and redirect output to a log file
+    multipass exec "$MASTER_NAME" -- sudo kubeadm config images pull > "$LOG_FILE" 2>&1 &
+    MASTER_PULL_PID=$!
+    log "Pulling container images for master node $MASTER_NAME in pid: $MASTER_PULL_PID"
+    MASTER_PULLING_PIDS+=("$MASTER_PULL_PID")
+done
 
-log "Checking HAProxy node: $HAPROXY_NAME"
+# Wait for all background processes to complete
+log "Waiting for container images to be pulled for master nodes"
 
-# Check if the HAProxy node already exists
-if multipass list | grep -q "$HAPROXY_NAME"; then
-    log "HAProxy node $HAPROXY_NAME already exists. Skipping creation."
-else
-    log "Creating HAProxy node: $HAPROXY_NAME"
-    multipass launch --name "$HAPROXY_NAME" --memory 1G --cpus 1 --disk 5G
-    ## Install HAProxy
-    multipass exec "$HAPROXY_NAME" -- bash -c "
-        sudo apt-get update && sudo apt-get install -y haproxy
-    "
+for pid in "${MASTER_PULLING_PIDS[@]}"; do
+    wait "$pid"
+    log "Container image pulling process completed for pid: $pid"
+done
 
-    log "$HAPROXY_NAME:: Generating HAProxy configuration"
-    # Generate HAProxy configuration
-    multipass exec "$HAPROXY_NAME" -- sudo cp /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy-bk.cfg
-fi
+log "All container images have been pulled successfully. Check individual log files for details."
 
 HAPROXY_CFG_PATH="${TEMP_DIR}/haproxy.cfg"
 

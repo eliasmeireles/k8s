@@ -1,6 +1,6 @@
 #!/bin/bash
 
-EXECUTION_TIME="$(date +'%Y-%m-%d_%H_%M_%S')"
+EXECUTION_TIME="$(date +'%Y_%m_%d_%H_%M_%S')"
 # Create temporary directory for logs
 TEMP_DIR="./.temp/"
 
