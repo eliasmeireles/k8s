@@ -153,10 +153,10 @@ join_worker_nodes() {
   local JOIN_COMMAND=""
   JOIN_COMMAND=$(multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo kubeadm token create --print-join-command)
 
-  for node in "${MASTER_NODES[@]}" "${WORKER_NODES[@]}"; do
+  for node in "${WORKER_NODES[@]}"; do
       log "Updating /etc/hosts on $node"
       log "Joining worker $node to the cluster with code $JOIN_COMMAND"
-      multipass exec "$node" -- sudo "$JOIN_COMMAND"
+      multipass exec "$node" -- sudo bash -c "$JOIN_COMMAND"
   done
 }
 
