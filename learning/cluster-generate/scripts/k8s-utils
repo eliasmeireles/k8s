@@ -218,7 +218,7 @@ config_haproxy_internal_proxy() {
 # K8s internal proxy
 frontend internal_proxy
     mode http
-    bind $HAPROXY_IP:80
+    bind $HAPROXY_IP:30080
     option httplog
     redirect scheme http code 301 if { hdr(Host) -i $HAPROXY_IP }
     default_backend ${BASE_NAME}-internal-proxy-${CLUSTER_VERSION}
@@ -232,8 +232,16 @@ backend ${BASE_NAME}-internal-proxy-${CLUSTER_VERSION}
   log "Setting up masters in HAProxy internal proxy configuration"
   for i in "${!MASTER_NODES[@]}"; do
       MASTER_IP=$(get_ip_address "${MASTER_NODES[$i]}")
-      log "Adding master ${MASTER_NODES[$i]}/$MASTER_IP to HAProxy internal proxy configuration"
+      log "Adding master ${MASTER_NODES[$i]}::$MASTER_IP to HAProxy internal proxy configuration"
       config_internal_proxy_master_ip_address "$MASTER_IP" "${MASTER_NODES[$i]}" | tee -a "${HAPROXY_CFG_PATH}"
+  done
+
+  # Add master nodes to HAProxy internal proxy configuration
+  log "Setting up workers in HAProxy internal proxy configuration"
+  for i in "${!WORKER_NODES[@]}"; do
+      WORKER_IP=$(get_ip_address "${WORKER_NODES[$i]}")
+      log "Adding worker ${WORKER_NODES[$i]}::$MASTER_IP to HAProxy internal proxy configuration"
+      config_internal_proxy_master_ip_address "$WORKER_IP" "${WORKER_NODES[$i]}" | tee -a "${HAPROXY_CFG_PATH}"
   done
 }
 
