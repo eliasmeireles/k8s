@@ -6,42 +6,78 @@ source ./scripts/k8s-utils
 
 setup_logs "cluster-generate"
 
-# Create master nodes
-for i in $(seq 1 "$NUM_MASTERS"); do
-    MASTER_NAME="${BASE_NAME}-master-${i}-${CLUSTER_VERSION}"
-    log "Checking master node: $MASTER_NAME"
+# Arrays to store background process PIDs
+MASTER_PIDS=()
+WORKER_PIDS=()
 
-    # Check if the node already exists
-    if multipass list | grep -q "$MASTER_NAME"; then
-        log "Master node $MASTER_NAME already exists. Skipping creation."
-    else
-        log "Creating master node: $MASTER_NAME"
-        multipass launch --name "$MASTER_NAME" --memory "$MASTER_MEM" --cpus "$MASTER_CPUS" --disk "$MASTER_DISK" --cloud-init ./template/k8s-base.yaml
-    fi
+# Function to launch master nodes in parallel
+launch_masters() {
+    for i in $(seq 1 "$NUM_MASTERS"); do
+        (
+            MASTER_NAME="${BASE_NAME}-master-${i}-${CLUSTER_VERSION}"
+            log "Checking master node: $MASTER_NAME"
 
-    # shellcheck disable=SC2206
-    MASTER_NODES+=($MASTER_NAME)
-done
+            # Check if the node already exists
+            if multipass list | grep -q "$MASTER_NAME"; then
+                log "Master node $MASTER_NAME already exists. Skipping creation."
+            else
+                log "Creating master node: $MASTER_NAME"
+                multipass launch --name "$MASTER_NAME" --memory "$MASTER_MEM" --cpus "$MASTER_CPUS" --disk "$MASTER_DISK" --cloud-init ./template/k8s-master-node.yaml
+            fi
 
-# Create worker nodes
-for i in $(seq 1 "$NUM_WORKERS"); do
-    WORKER_NAME="${BASE_NAME}-worker-${i}-${CLUSTER_VERSION}"
-    log "Checking worker node: $WORKER_NAME"
+            # Add the node to the array
+            # shellcheck disable=SC2206
+            MASTER_NODES+=($MASTER_NAME)
+        ) &
+        MASTER_PIDS+=($!)
+    done
+}
 
-    # Check if the node already exists
-    if multipass list | grep -q "$WORKER_NAME"; then
-        log "Worker node $WORKER_NAME already exists. Skipping creation."
-    else
-        log "Creating worker node: $WORKER_NAME"
-        multipass launch --name "$WORKER_NAME" --memory "$WORKER_MEM" --cpus "$WORKER_CPUS" --disk "$WORKER_DISK" --cloud-init ./template/k8s-base.yaml
-    fi
+# Function to launch worker nodes in parallel
+launch_workers() {
+    for i in $(seq 1 "$NUM_WORKERS"); do
+        (
+            WORKER_NAME="${BASE_NAME}-worker-${i}-${CLUSTER_VERSION}"
+            log "Checking worker node: $WORKER_NAME"
 
-    # shellcheck disable=SC2206
-    WORKER_NODES+=($WORKER_NAME)
-done
+            # Check if the node already exists
+            if multipass list | grep -q "$WORKER_NAME"; then
+                log "Worker node $WORKER_NAME already exists. Skipping creation."
+            else
+                log "Creating worker node: $WORKER_NAME"
+                multipass launch --name "$WORKER_NAME" --memory "$WORKER_MEM" --cpus "$WORKER_CPUS" --disk "$WORKER_DISK" --cloud-init ./template/k8s-worker-node.yaml
+            fi
+
+            # Add the node to the array
+            # shellcheck disable=SC2206
+            WORKER_NODES+=($WORKER_NAME)
+        ) &
+        WORKER_PIDS+=($!)
+    done
+}
+
+# Wait for all master and worker node launches to complete
+wait_for_node_launches() {
+    # Wait for master nodes
+    for pid in "${MASTER_PIDS[@]}"; do
+        wait "$pid"
+    done
+
+    # Wait for worker nodes
+    for pid in "${WORKER_PIDS[@]}"; do
+        wait "$pid"
+    done
+}
+
+# Main execution
+launch_masters
+launch_workers
+wait_for_node_launches
+
 
 # Create HAProxy node
 HAPROXY_NAME="${BASE_NAME}-haproxy-${CLUSTER_VERSION}"
+
 log "Checking HAProxy node: $HAPROXY_NAME"
 
 # Check if the HAProxy node already exists
@@ -110,12 +146,6 @@ multipass exec "$HAPROXY_NAME" -- bash -c "
     sudo chmod 644 /etc/haproxy/haproxy.cfg
     sudo systemctl restart haproxy
 "
-
-for i in $(seq 1 "$NUM_MASTERS"); do
-    MASTER_NAME="${BASE_NAME}-master-${i}-${CLUSTER_VERSION}"
-    log "Pulling container images for master node: $MASTER_NAME"
-    multipass exec "$MASTER_NAME" -- sudo kubeadm config images pull
-done
 
 master_node_config
 
