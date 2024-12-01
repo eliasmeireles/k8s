@@ -157,6 +157,7 @@ join_worker_nodes() {
       log "Updating /etc/hosts on $node"
       log "Joining worker $node to the cluster with code $JOIN_COMMAND"
       multipass exec "$node" -- sudo bash -c "$JOIN_COMMAND"
+      multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo kubectl get nodes -o wide
   done
 }
 
