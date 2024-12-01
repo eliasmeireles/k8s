@@ -149,6 +149,17 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+join_worker_nodes() {
+  local JOIN_COMMAND=""
+  JOIN_COMMAND=$(multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo kubeadm token create --print-join-command)
+
+  for node in "${MASTER_NODES[@]}" "${WORKER_NODES[@]}"; do
+      log "Updating /etc/hosts on $node"
+      log "Joining worker $node to the cluster with code $JOIN_COMMAND"
+      multipass exec "$node" -- sudo "$JOIN_COMMAND"
+  done
+}
+
 master_node_config() {
   echo "#!/bin/bash
 
@@ -166,8 +177,6 @@ master_node_config() {
   kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/weave-daemonset-k8s.yaml
   kubectl create namespace development
   kubectl config set-context --current --namespace=development
-  echo \"Adding ingress-nginx\"
-  kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
   " > "${TEMP_DIR}"/master-setup
 
   # Transfer the master-setup script to the first master node
@@ -178,6 +187,10 @@ master_node_config() {
   # Run the script with sudo
   multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo /tmp/master-setup
   multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo cat /root/.kube/config > "${TEMP_DIR}/config"
+
+  join_worker_nodes
+
+  multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- "sudo kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml"
 }
 
 utils_generate() {
@@ -218,7 +231,7 @@ config_haproxy_internal_proxy() {
 # K8s internal proxy
 frontend internal_proxy
     mode http
-    bind $HAPROXY_IP:30080
+    bind $HAPROXY_IP:80
     option httplog
     redirect scheme http code 301 if { hdr(Host) -i $HAPROXY_IP }
     default_backend ${BASE_NAME}-internal-proxy-${CLUSTER_VERSION}
