@@ -1,49 +1,37 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: file-server
+  name: http-request
   labels:
-    app: file-server
+    app: http-request
 spec:
   selector:
     matchLabels:
-      app: file-server
+      app: http-request
   template:
     metadata:
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "8080"
+        prometheus.io/port: "80"
       labels:
-        app: file-server
+        app: http-request
     spec:
       serviceAccountName: default
       containers:
-        - name: file-server
-          image: "eliasmeireles/file-server:v1"
+        - name: http-request
+          image: "eliasmeireles/http-request:v1"
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
-              containerPort: 8080
+              containerPort: 80
               protocol: TCP
-          readinessProbe:
-            httpGet:
-              path: /api/file-server/v1/health
-              port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /api/file-server/v1/health
-              port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 20
           resources:
             limits:
-              cpu: 1000m
-              memory: 512Mi
+              cpu: 300m
+              memory: 64Mi
             requests:
               cpu: 100m
-              memory: 128Mi
+              memory: 32Mi
       nodeSelector:
         kubernetes.io/os: linux
       tolerations: [ ]
@@ -53,48 +41,48 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: file-server
+  name: http-request
   labels:
-    app: file-server
+    app: http-request
 spec:
-  type: ClusterIP # Changed from LoadBalancer to ClusterIP for ingress compatibility
+  type: ClusterIP
   ports:
-    - port: 8080
-      targetPort: 8080
+    - port: 80
+      targetPort: 80
   selector:
-    app: file-server
+    app: http-request
 
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: file-server-ingress
+  name: http-request-ingress
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /api/file-server/v1/
+    nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   ingressClassName: nginx
   rules:
-    - host: k8s.learning.local
+    - host: http-request.k8s.learning.local
       http:
         paths:
-          - path: /api/file-server/v1/
-            pathType: ImplementationSpecific
+          - path: /
+            pathType: Prefix
             backend:
               service:
-                name: file-server
+                name: http-request
                 port:
-                  number: 8080
+                  number: 80
 
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: file-server
+  name: http-request
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: file-server
+    name: http-request
   minReplicas: 1
   maxReplicas: 10
   metrics:
@@ -109,17 +97,17 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-file-server-traffic
+  name: allow-http-request-traffic
   labels:
-    app: file-server
+    app: http-request
 spec:
   podSelector:
     matchLabels:
-      app: file-server
+      app: http-request
   ingress:
     - from:
         - namespaceSelector: { }
           podSelector: { }
       ports:
         - protocol: TCP
-          port: 8080
+          port: 80

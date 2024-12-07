@@ -1,0 +1,85 @@
+#!/bin/bash
+set -e
+
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+chmod 700 get_helm.sh
+./get_helm.sh
+
+# Variables
+NAMESPACE_MONITORING="monitoring"
+INGRESS_HOST="monitor.k8s.learning.local"
+INGRESS_CLASS="nginx"  # Change if you use a custom ingress class name
+
+# Prometheus Authentication
+PROMETHEUS_USERNAME="promuser"
+PROMETHEUS_PASSWORD="prometheus@local"
+
+# Grafana Authentication
+GRAFANA_PASSWORD="grafana@local"
+
+# Create namespace
+kubectl create namespace $NAMESPACE_MONITORING || echo "Namespace $NAMESPACE_MONITORING already exists"
+
+# Install htpasswd if not already installed
+if ! command -v htpasswd &> /dev/null; then
+    echo "Installing apache2-utils (contains htpasswd)"
+    sudo apt-get update
+    sudo apt-get install -y apache2-utils
+fi
+
+# Create htpasswd file for Prometheus
+mkdir -p /tmp/auth
+htpasswd -bc /tmp/auth/prometheus-auth "$PROMETHEUS_USERNAME" "$PROMETHEUS_PASSWORD"
+
+# Create Kubernetes secret for Prometheus basic auth
+kubectl create secret generic prometheus-basic-auth \
+    --from-file=/tmp/auth/prometheus-auth \
+    -n $NAMESPACE_MONITORING || echo "Secret prometheus-basic-auth already exists"
+
+# Add Helm repositories
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo update
+
+# Install Prometheus
+helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+  --namespace $NAMESPACE_MONITORING \
+  --set grafana.enabled=false \
+  --set prometheus.ingress.enabled=true \
+  --set prometheus.ingress.ingressClassName=$INGRESS_CLASS \
+  --set prometheus.ingress.hosts[0]="$INGRESS_HOST" \
+  --set prometheus.ingress.paths[0]="/prometheus" \
+  --set "prometheus.ingress.annotations.nginx\\.ingress\\.kubernetes\\.io/auth-type=basic" \
+  --set "prometheus.ingress.annotations.nginx\\.ingress\\.kubernetes\\.io/auth-secret=prometheus-basic-auth" \
+  --set "prometheus.ingress.annotations.nginx\\.ingress\\.kubernetes\\.io/auth-realm=Prometheus Authentication"
+
+# Install Grafana
+helm upgrade --install grafana grafana/grafana \
+  --namespace $NAMESPACE_MONITORING \
+  --set service.type=ClusterIP \
+  --set ingress.enabled=true \
+  --set ingress.ingressClassName=$INGRESS_CLASS \
+  --set "ingress.hosts[0]=$INGRESS_HOST" \
+  --set "ingress.paths[0]=/grafana" \
+  --set adminPassword="$GRAFANA_PASSWORD"
+
+# Clean up temporary auth file
+rm -f /tmp/auth/prometheus-auth
+
+# Wait for pods to be ready
+echo "Waiting for Prometheus and Grafana pods to be ready..."
+kubectl wait --namespace $NAMESPACE_MONITORING --for=condition=Ready pod --selector=app.kubernetes.io/instance=prometheus --timeout=300s
+kubectl wait --namespace $NAMESPACE_MONITORING --for=condition=Ready pod --selector=app.kubernetes.io/instance=grafana --timeout=300s
+
+# Display access details
+echo "Prometheus is accessible via Ingress"
+echo "Prometheus URL: http://$INGRESS_HOST/prometheus"
+echo "Prometheus Username: $PROMETHEUS_USERNAME"
+echo "Prometheus Password: $PROMETHEUS_PASSWORD"
+echo ""
+echo "Grafana is accessible at: http://$INGRESS_HOST/grafana"
+echo "Grafana Username: admin"
+echo "Grafana Password: $GRAFANA_PASSWORD"
+
+# Optional: Show ingress details
+kubectl get ingress -n $NAMESPACE_MONITORING

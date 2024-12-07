@@ -84,6 +84,18 @@ open "$RANCHER_HOST" &>/dev/null &
 log "Multipass instance '$NAME' created successfully."
 log "Access Rancher at: $RANCHER_HOST"
 
+helm install rancher rancher-latest/rancher --namespace cattle-system \
+  --set hostname=rancher.softwareplace.online \
+  --set bootstrapPassword="rancher@softwareplace" \
+  --set replicas=2 \
+  --set ingress.enabled=true \
+  --set ingress.hostname=rancher.softwareplace.online \
+  --set ingress.className=nginx \
+  --set persistence.enabled=true \
+  --set persistence.size=10Gi \
+  --set persistence.storageClass="rancher-resource-storage"
+
+
 
 
 

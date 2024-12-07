@@ -64,13 +64,10 @@ metadata:
     app.kubernetes.io/version: "1.16.0"
     app.kubernetes.io/managed-by: Helm
 spec:
-  type: LoadBalancer
+  type: ClusterIP # Changed from LoadBalancer to ClusterIP for ingress compatibility
   ports:
     - port: 80
       targetPort: 80
-      protocol: TCP
-      name: http
-      nodePort: 30080
   selector:
     app: internal-server
     app.kubernetes.io/name: internal-server
@@ -169,7 +166,6 @@ spec:
   minReplicas: 5
   maxReplicas: 10
 ---
-# Source: internal-server/templates/ingress.yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -180,19 +176,17 @@ metadata:
     app.kubernetes.io/instance: internal-server
     app.kubernetes.io/version: "1.16.0"
     app.kubernetes.io/managed-by: Helm
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   ingressClassName: nginx
   rules:
-    - host: "k8s.learning.local"
+    - host: k8s.internal.local
       http:
         paths:
           - path: /
-            pathType: Prefix
+            pathType: ImplementationSpecific
             backend:
               service:
-                name: proxy-service
+                name: internal-server
                 port:
                   number: 80
 

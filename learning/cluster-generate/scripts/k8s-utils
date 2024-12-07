@@ -60,7 +60,8 @@ config_master_ip_address() {
 config_internal_proxy_master_ip_address() {
     local ip_address=$1
     local master_name=$2
-    echo "    server $master_name ${ip_address}:30080 check fall 3 rise 2"
+    local ingress_nginx_svc_port=$3
+    echo "    server $master_name ${ip_address}:${ingress_nginx_svc_port} check fall 3 rise 2"
 }
 
 # Function to read and validate user input
@@ -193,7 +194,7 @@ master_node_config() {
   # Install Nginx Ingress Controller
   multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c "kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml"
   # Install metrics server
-  multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c " kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml"
+#  multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c " kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml"
 }
 
 utils_generate() {
@@ -202,7 +203,7 @@ utils_generate() {
 set -e
 
 mkdir -p \$HOME/.kube
-mv \$HOME/.kube/config \$HOME/.kube/config-bkp-from-$(date +'%Y-%m-%d %H-%M-%S') || true
+mv \$HOME/.kube/config \$HOME/.kube/config-bkp-from-\$(date +'%Y-%m-%d %H-%M-%S') || true
 cp ${TEMP_DIR}/config \$HOME/.kube/config
 chmod 644 \$HOME/.kube/config
 
@@ -229,12 +230,35 @@ sudo cat /etc/hosts
   "
 }
 
+update_haproxy_config() {
+  multipass transfer "${HAPROXY_CFG_PATH}" "${HAPROXY_NAME}:/tmp/haproxy.cfg"
+
+  multipass exec "$HAPROXY_NAME" -- bash -c "
+      sudo mv /tmp/haproxy.cfg /etc/haproxy/haproxy.cfg
+      sudo chown root:root /etc/haproxy/haproxy.cfg
+      sudo chmod 644 /etc/haproxy/haproxy.cfg
+      sudo systemctl restart haproxy
+  "
+}
+
 config_haproxy_internal_proxy() {
+  local INGRESS_NGINX_SVC_PORT
+
+  INGRESS_NGINX_SVC_PORT=$(
+  multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c "
+    # Get the ingress-nginx-controller service details in the ingress-nginx namespace
+    SERVICE_DETAILS=\$(kubectl get svc ingress-nginx-controller -n ingress-nginx -o=json)
+
+    # Extract the nodePort for the HTTP port (port 80)
+    echo \$SERVICE_DETAILS | jq -r '.spec.ports[] | select(.port == 80) | .nodePort'
+    "
+  )
+
   echo "
 # K8s internal proxy
 frontend internal_proxy
     mode http
-    bind $HAPROXY_IP:80
+    bind *:80
     option httplog
     redirect scheme http code 301 if { hdr(Host) -i $HAPROXY_IP }
     default_backend ${BASE_NAME}-internal-proxy-${CLUSTER_VERSION}
@@ -249,7 +273,7 @@ backend ${BASE_NAME}-internal-proxy-${CLUSTER_VERSION}
   for i in "${!MASTER_NODES[@]}"; do
       MASTER_IP=$(get_ip_address "${MASTER_NODES[$i]}")
       log "Adding master ${MASTER_NODES[$i]}::$MASTER_IP to HAProxy internal proxy configuration"
-      config_internal_proxy_master_ip_address "$MASTER_IP" "${MASTER_NODES[$i]}" | tee -a "${HAPROXY_CFG_PATH}"
+      config_internal_proxy_master_ip_address "$MASTER_IP" "${MASTER_NODES[$i]}" "${INGRESS_NGINX_SVC_PORT}" | tee -a "${HAPROXY_CFG_PATH}"
   done
 
   # Add master nodes to HAProxy internal proxy configuration
@@ -257,7 +281,7 @@ backend ${BASE_NAME}-internal-proxy-${CLUSTER_VERSION}
   for i in "${!WORKER_NODES[@]}"; do
       WORKER_IP=$(get_ip_address "${WORKER_NODES[$i]}")
       log "Adding worker ${WORKER_NODES[$i]}::$MASTER_IP to HAProxy internal proxy configuration"
-      config_internal_proxy_master_ip_address "$WORKER_IP" "${WORKER_NODES[$i]}" | tee -a "${HAPROXY_CFG_PATH}"
+      config_internal_proxy_master_ip_address "$WORKER_IP" "${WORKER_NODES[$i]}"  "${INGRESS_NGINX_SVC_PORT}" | tee -a "${HAPROXY_CFG_PATH}"
   done
 }
 

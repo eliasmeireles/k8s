@@ -33,6 +33,7 @@ launch_masters() {
 
       log "$MASTER_NAME launcher running in pid: $PID"
       MASTER_PIDS+=("$PID")
+      sleep 1
     done
 }
 
@@ -57,6 +58,7 @@ launch_workers() {
 
         log "$WORKER_NAME launcher running in pid: $PID"
          WORKER_PIDS+=($PID)
+        sleep 1
     done
 }
 
@@ -143,7 +145,7 @@ echo "
 # K8s proxy
 frontend kubernetes
     mode tcp
-    bind $HAPROXY_IP:6443
+    bind *:6443
     option tcplog
     default_backend ${BASE_NAME}-masters-${CLUSTER_VERSION}
 
@@ -163,8 +165,6 @@ for i in "${!MASTER_NODES[@]}"; do
     config_master_ip_address "$MASTER_IP" "${MASTER_NODES[$i]}" | tee -a "${HAPROXY_CFG_PATH}"
 done
 
-config_haproxy_internal_proxy
-
 # Update /etc/hosts for all nodes
 log "Setting up workers in HAProxy configuration"
 for node in "${MASTER_NODES[@]}" "${WORKER_NODES[@]}"; do
@@ -172,14 +172,7 @@ for node in "${MASTER_NODES[@]}" "${WORKER_NODES[@]}"; do
     multipass exec "$node" -- bash -c "echo '${HAPROXY_IP} ${HAPROXY_NAME}' | sudo tee -a /etc/hosts"
 done
 
-multipass transfer "${HAPROXY_CFG_PATH}" "${HAPROXY_NAME}:/tmp/haproxy.cfg"
-
-multipass exec "$HAPROXY_NAME" -- bash -c "
-    sudo mv /tmp/haproxy.cfg /etc/haproxy/haproxy.cfg
-    sudo chown root:root /etc/haproxy/haproxy.cfg
-    sudo chmod 644 /etc/haproxy/haproxy.cfg
-    sudo systemctl restart haproxy
-"
+update_haproxy_config
 
 master_node_config
 
@@ -193,6 +186,10 @@ done
 log "HAProxy: $HAPROXY_NAME: $HAPROXY_IP"
 
 log "Cluster [${BASE_NAME}-${CLUSTER_VERSION}] setup is complete."
+
+config_haproxy_internal_proxy
+
+update_haproxy_config
 
 utils_generate
 
