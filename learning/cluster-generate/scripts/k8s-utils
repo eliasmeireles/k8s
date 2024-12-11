@@ -11,6 +11,9 @@ DEFAULT_MASTER_DISK=22G
 DEFAULT_WORKER_MEM=4G
 DEFAULT_WORKER_CPUS=2
 DEFAULT_WORKER_DISK=32G
+DEFAULT_HAPROXY_DISK=24G
+DEFAULT_HAPROXY_CPU=2
+DEFAULT_HAPROXY_MEMORY=4G
 
 # Function to display help
 display_help() {
@@ -27,6 +30,9 @@ display_help() {
     echo "  --worker-mem         Memory for worker nodes (default: $DEFAULT_WORKER_MEM)"
     echo "  --worker-cpus        CPUs for worker nodes (default: $DEFAULT_WORKER_CPUS)"
     echo "  --worker-disk        Disk size for worker nodes (default: $DEFAULT_WORKER_DISK)"
+    echo "  --haproxy-disk       Disk size for HAProxy node (default: $DEFAULT_HAPROXY_DISK)"
+    echo "  --haproxy-cpu        CPUs for HAProxy node (default: $DEFAULT_HAPROXY_CPU)"
+    echo "  --haproxy-memory     Memory for HAProxy node (default: $DEFAULT_HAPROXY_MEMORY)"
     echo "  --help               Display this help message"
     exit 0
 }
@@ -140,6 +146,18 @@ while [ $# -gt 0 ]; do
             WORKER_DISK="$2"
             shift 2
             ;;
+        --haproxy-disk)
+            HAPROXY_DISK="$2"
+            shift 2
+            ;;
+        --haproxy-cpu)
+            HAPROXY_CPU="$2"
+            shift 2
+            ;;
+        --haproxy-memory)
+            HAPROXY_MEMORY="$2"
+            shift 2
+            ;;
         --help)
             display_help
             ;;
@@ -149,6 +167,24 @@ while [ $# -gt 0 ]; do
             ;;
     esac
 done
+
+# Validate required inputs
+[ -z "$BASE_NAME" ] && read_and_validate "Enter base name for the cluster: " BASE_NAME "^[a-zA-Z0-9_-]+$" "Example: k8s-cluster"
+[ -z "$CLUSTER_VERSION" ] && read_and_validate "Enter Kubernetes cluster version: " CLUSTER_VERSION "^[vV]?[0-9]+(\.[0-9]+)*$" "Example: v1.27"
+[ -z "$NUM_MASTERS" ] && read_and_validate "Enter number of master nodes: " NUM_MASTERS "^[0-9]+$" "Example: 3"
+[ -z "$NUM_WORKERS" ] && read_and_validate "Enter number of worker nodes: " NUM_WORKERS "^[0-9]+$" "Example: 3"
+log "Creating Kubernetes cluster with $NUM_MASTERS master nodes and $NUM_WORKERS worker nodes"
+
+# Use default values if not provided
+MASTER_MEM=${MASTER_MEM:-$DEFAULT_MASTER_MEM}
+MASTER_CPUS=${MASTER_CPUS:-$DEFAULT_MASTER_CPUS}
+MASTER_DISK=${MASTER_DISK:-$DEFAULT_MASTER_DISK}
+WORKER_MEM=${WORKER_MEM:-$DEFAULT_WORKER_MEM}
+WORKER_CPUS=${WORKER_CPUS:-$DEFAULT_WORKER_CPUS}
+WORKER_DISK=${WORKER_DISK:-$DEFAULT_WORKER_DISK}
+HAPROXY_DISK=${HAPROXY_DISK:-$DEFAULT_HAPROXY_DISK}
+HAPROXY_CPU=${HAPROXY_CPU:-$DEFAULT_HAPROXY_CPU}
+HAPROXY_MEMORY=${HAPROXY_MEMORY:-$DEFAULT_HAPROXY_MEMORY}
 
 join_worker_nodes() {
   local JOIN_COMMAND=""
@@ -285,20 +321,6 @@ backend ${BASE_NAME}-internal-proxy-${CLUSTER_VERSION}
   done
 }
 
-# Validate required inputs
-[ -z "$BASE_NAME" ] && read_and_validate "Enter base name for the cluster: " BASE_NAME "^[a-zA-Z0-9_-]+$" "Example: k8s-cluster"
-[ -z "$CLUSTER_VERSION" ] && read_and_validate "Enter Kubernetes cluster version: " CLUSTER_VERSION "^[vV]?[0-9]+(\.[0-9]+)*$" "Example: v1.27"
-[ -z "$NUM_MASTERS" ] && read_and_validate "Enter number of master nodes: " NUM_MASTERS "^[0-9]+$" "Example: 3"
-[ -z "$NUM_WORKERS" ] && read_and_validate "Enter number of worker nodes: " NUM_WORKERS "^[0-9]+$" "Example: 3"
-log "Creating Kubernetes cluster with $NUM_MASTERS master nodes and $NUM_WORKERS worker nodes"
-
-# Use default values if not provided
-MASTER_MEM=${MASTER_MEM:-$DEFAULT_MASTER_MEM}
-MASTER_CPUS=${MASTER_CPUS:-$DEFAULT_MASTER_CPUS}
-MASTER_DISK=${MASTER_DISK:-$DEFAULT_MASTER_DISK}
-WORKER_MEM=${WORKER_MEM:-$DEFAULT_WORKER_MEM}
-WORKER_CPUS=${WORKER_CPUS:-$DEFAULT_WORKER_CPUS}
-WORKER_DISK=${WORKER_DISK:-$DEFAULT_WORKER_DISK}
 
 # Validate minimum CPUs and memory for master and worker nodes
 validate_min_requirements "$MASTER_CPUS" 2

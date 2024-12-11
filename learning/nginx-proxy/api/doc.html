@@ -13,6 +13,7 @@
             height: 100vh;
             background-color: #f9f9f9;
             color: #333;
+            line-height: 1.6;
         }
         .container {
             max-width: 800px;
@@ -30,6 +31,20 @@
             padding: 2px 4px;
             border-radius: 4px;
         }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
         .curl-example {
             background-color: #f9f9f9;
             padding: 10px;
@@ -37,20 +52,26 @@
             border-radius: 4px;
             margin-top: 10px;
             position: relative;
+            word-wrap: break-word;
         }
-        .copy-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
+        .copy-btn, .apply-btn {
             background-color: #0073e6;
             color: white;
             border: none;
             padding: 5px 10px;
             border-radius: 4px;
             cursor: pointer;
+            margin-top: 10px;
         }
-        .copy-btn:hover {
+        .copy-btn:hover, .apply-btn:hover {
             background-color: #005bb5;
+        }
+        .api-result {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f4f4f4;
+            border-radius: 4px;
+            word-wrap: break-word;
         }
 
         /* Toast Styles */
@@ -91,39 +112,126 @@
     <h1>API Documentation</h1>
     <h2>POST /ingress</h2>
     <p>Create a new ingress configuration.</p>
-    <h3>Request Body:</h3>
-    <ul>
-        <li><strong>name</strong> (string): Unique name for the ingress (required)</li>
-        <li><strong>host</strong> (string): Hostname or IP to route traffic (required)</li>
-        <li><strong>protocol</strong> (string): Protocol (http/https/tcp/udp, default: http)</li>
-        <li><strong>upstream</strong> (string): Upstream server address (required)</li>
-    </ul>
-    <h3>Curl Example:</h3>
+
+    <form id="ingressForm">
+        <div class="form-group">
+            <label for="name">Unique name for the ingress (required)</label>
+            <input type="text" id="name" name="name" required placeholder="Unique name for the ingress">
+        </div>
+        <div class="form-group">
+            <label for="host">Hostname or IP to route traffic (required)</label>
+            <input type="text" id="host" name="host" required placeholder="Hostname or IP to route traffic">
+        </div>
+        <div class="form-group">
+            <label for="protocol">Protocol (http/https/tcp/udp, default: http)</label>
+            <input type="text" id="protocol" name="protocol" placeholder="http/https/tcp/udp (default: http)">
+        </div>
+        <div class="form-group">
+            <label for="upstream">Upstream server address (required)</label>
+            <input type="text" id="upstream" name="upstream" required placeholder="Upstream server address">
+        </div>
+        <button type="button" class="apply-btn" onclick="generateCurlCommand()">Generate Curl Command</button>
+    </form>
+
     <div class="curl-example">
+        <strong>Curl Command:</strong>
+        <code id="curl-command">Curl command will appear here after filling out the form</code>
         <button class="copy-btn" onclick="copyCurl()">Copy</button>
-        <code id="curl-command">
-            curl -X POST http://localhost:8080/ingress \
-            -H "Content-Type: application/json" \
-            -d '{"name": "example", "host": "example.com", "protocol": "http", "upstream": "http://127.0.0.1:8080"}'
-        </code>
     </div>
-    <h3>Response:</h3>
-    <p>JSON object indicating success or error.</p>
-    <h2>GET /doc</h2>
-    <p>Retrieve API documentation in HTML format.</p>
+
+    <div class="api-result">
+        <strong>API Response:</strong>
+        <pre id="api-response">Response will appear here after sending request</pre>
+    </div>
 </div>
 
 <!-- Toast Notification -->
 <div id="toast"></div>
 
 <script>
+    function generateCurlCommand() {
+        const form = document.getElementById('ingressForm');
+        const name = document.getElementById('name').value.trim();
+        const host = document.getElementById('host').value.trim();
+        const protocol = document.getElementById('protocol').value.trim() || 'http';
+        const upstream = document.getElementById('upstream').value.trim();
+
+        // Validate required fields
+        if (!name || !host || !upstream) {
+            showToast('Please fill in all required fields');
+            return;
+        }
+
+        // Construct the JSON payload
+        const payload = {
+            name: name,
+            host: host,
+            protocol: protocol,
+            upstream: upstream
+        };
+
+        // Generate curl command
+        const curlCommand = `curl -X POST http://localhost:8080/ingress \
+ -H "Content-Type: application/json" \
+ -d '${JSON.stringify(payload)}'`;
+
+        document.getElementById('curl-command').textContent = curlCommand;
+
+        // Optional: Simulate API call (replace with actual API endpoint)
+        simulateApiCall(payload);
+    }
+
+    function simulateApiCall(payload) {
+        // This is a mock API call. In a real scenario, replace with actual fetch/axios call
+        const responseArea = document.getElementById('api-response');
+        try {
+            // Simulate successful response
+            const mockResponse = {
+                status: 'success',
+                message: 'Ingress configuration created',
+                data: payload
+            };
+
+            responseArea.textContent = JSON.stringify(mockResponse, null, 2);
+        } catch (error) {
+            responseArea.textContent = 'Error: ' + error.message;
+        }
+    }
+
     function copyCurl() {
         const curlCommand = document.getElementById("curl-command").textContent.trim();
-        navigator.clipboard.writeText(curlCommand).then(() => {
-            showToast("Curl command copied to clipboard!");
-        }).catch(err => {
-            showToast("Failed to copy: " + err);
-        });
+
+        // Fallback method for browsers that don't support Clipboard API
+        const fallbackCopyTextToClipboard = (text) => {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+
+            try {
+                const successful = document.execCommand('copy');
+                showToast(successful ? "Curl command copied to clipboard!" : "Copy failed");
+            } catch (err) {
+                showToast("Failed to copy: " + err);
+            }
+
+            document.body.removeChild(textArea);
+        };
+
+        // Try Clipboard API first
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(curlCommand)
+                .then(() => {
+                    showToast("Curl command copied to clipboard!");
+                })
+                .catch(err => {
+                    console.error('Clipboard API error:', err);
+                    fallbackCopyTextToClipboard(curlCommand);
+                });
+        } else {
+            // Fallback for older browsers
+            fallbackCopyTextToClipboard(curlCommand);
+        }
     }
 
     function showToast(message) {

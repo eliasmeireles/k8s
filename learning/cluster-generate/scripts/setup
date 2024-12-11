@@ -74,7 +74,7 @@ launch_haproxy() {
   else
       log "Creating HAProxy node: $HAPROXY_NAME"
       HAPROXY_LOG_FILE="${TEMP_DIR}/${HAPROXY_NAME}_launcher.log"
-      multipass launch --name "$HAPROXY_NAME" --memory 1G --cpus 1 --disk 5G --cloud-init ./template/k8s-haproxy.yaml > "$HAPROXY_LOG_FILE" 2>&1 &
+      multipass launch --name "$HAPROXY_NAME" --memory "${HAPROXY_DISK}" --cpus "$HAPROXY_CPU" --disk "${HAPROXY_DISK}" --cloud-init ./template/k8s-haproxy.yaml > "$HAPROXY_LOG_FILE" 2>&1 &
       local PID
       PID=$!
       log "$HAPROXY_NAME launcher running in pid: $PID"
