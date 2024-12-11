@@ -1,0 +1,27 @@
+version: '3.8'
+services:
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: nginx-proxy
+    restart: always
+    ports:
+      - "1080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./scripts/reload-config.sh:/reload-config.sh
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: nginx-api
+    volumes:
+      - ./api:/app
+      - ./nginx/conf.d:/app/conf.d
+    working_dir: /app
+    restart: always
+    ports:
+      - "8080:8080"

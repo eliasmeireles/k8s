@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  web1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    container_name: web1
+  web2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    container_name: web2

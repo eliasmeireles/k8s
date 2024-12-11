@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Documentation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #0073e6;
+            text-align: center;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+        .curl-example {
+            background-color: #f9f9f9;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-top: 10px;
+            position: relative;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #0073e6;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .copy-btn:hover {
+            background-color: #005bb5;
+        }
+
+        /* Toast Styles */
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            margin-left: -125px;
+            background-color: #4CAF50;
+            color: #fff;
+            text-align: center;
+            border-radius: 5px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1;
+            left: 50%;
+            bottom: 30px;
+            font-size: 16px;
+        }
+
+        #toast.show {
+            visibility: visible;
+            animation: fadein 0.5s, fadeout 0.5s 2.5s;
+        }
+
+        @keyframes fadein {
+            from {bottom: 0; opacity: 0;}
+            to {bottom: 30px; opacity: 1;}
+        }
+
+        @keyframes fadeout {
+            from {bottom: 30px; opacity: 1;}
+            to {bottom: 0; opacity: 0;}
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>API Documentation</h1>
+    <h2>POST /ingress</h2>
+    <p>Create a new ingress configuration.</p>
+    <h3>Request Body:</h3>
+    <ul>
+        <li><strong>name</strong> (string): Unique name for the ingress (required)</li>
+        <li><strong>host</strong> (string): Hostname or IP to route traffic (required)</li>
+        <li><strong>protocol</strong> (string): Protocol (http/https/tcp/udp, default: http)</li>
+        <li><strong>upstream</strong> (string): Upstream server address (required)</li>
+    </ul>
+    <h3>Curl Example:</h3>
+    <div class="curl-example">
+        <button class="copy-btn" onclick="copyCurl()">Copy</button>
+        <code id="curl-command">
+            curl -X POST http://localhost:8080/ingress \
+            -H "Content-Type: application/json" \
+            -d '{"name": "example", "host": "example.com", "protocol": "http", "upstream": "http://127.0.0.1:8080"}'
+        </code>
+    </div>
+    <h3>Response:</h3>
+    <p>JSON object indicating success or error.</p>
+    <h2>GET /doc</h2>
+    <p>Retrieve API documentation in HTML format.</p>
+</div>
+
+<!-- Toast Notification -->
+<div id="toast"></div>
+
+<script>
+    function copyCurl() {
+        const curlCommand = document.getElementById("curl-command").textContent.trim();
+        navigator.clipboard.writeText(curlCommand).then(() => {
+            showToast("Curl command copied to clipboard!");
+        }).catch(err => {
+            showToast("Failed to copy: " + err);
+        });
+    }
+
+    function showToast(message) {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.className = "show";
+        setTimeout(() => {
+            toast.className = toast.className.replace("show", "");
+        }, 3000);
+    }
+</script>
+</body>
+</html>
