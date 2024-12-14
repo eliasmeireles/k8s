@@ -74,7 +74,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: k8s.learning.local
+    - host: v1.k8s.local
       http:
         paths:
           - path: /api/file-server/v1/

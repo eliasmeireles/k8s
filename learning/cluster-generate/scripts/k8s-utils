@@ -14,14 +14,13 @@ DEFAULT_WORKER_DISK=32G
 DEFAULT_HAPROXY_DISK=24G
 DEFAULT_HAPROXY_CPU=2
 DEFAULT_HAPROXY_MEMORY=4G
-
 # Function to display help
 display_help() {
     echo "Usage: $0 [options]"
     echo
     echo "Options:"
     echo "  --base-name          Base name for the cluster"
-    echo "  --cluster-version    Kubernetes cluster version (e.g., v1.27)"
+    echo "  --cluster-version    Kubernetes cluster version (e.g., v1)"
     echo "  --num-masters        Number of master nodes"
     echo "  --num-workers        Number of worker nodes"
     echo "  --master-mem         Memory for master nodes (default: $DEFAULT_MASTER_MEM)"
@@ -30,9 +29,10 @@ display_help() {
     echo "  --worker-mem         Memory for worker nodes (default: $DEFAULT_WORKER_MEM)"
     echo "  --worker-cpus        CPUs for worker nodes (default: $DEFAULT_WORKER_CPUS)"
     echo "  --worker-disk        Disk size for worker nodes (default: $DEFAULT_WORKER_DISK)"
-    echo "  --haproxy-disk       Disk size for HAProxy node (default: $DEFAULT_HAPROXY_DISK)"
-    echo "  --haproxy-cpu        CPUs for HAProxy node (default: $DEFAULT_HAPROXY_CPU)"
-    echo "  --haproxy-memory     Memory for HAProxy node (default: $DEFAULT_HAPROXY_MEMORY)"
+    echo "  --haproxy-disk       Disk size for proxy server node (default: $DEFAULT_HAPROXY_DISK)"
+    echo "  --haproxy-cpu        CPUs for proxy server node (default: $DEFAULT_HAPROXY_CPU)"
+    echo "  --haproxy-memory     Memory for proxy server node (default: $DEFAULT_HAPROXY_MEMORY)"
+    echo "  --host               Hostname for the Kubernetes proxy (default: <cluster version>.k8s.local)"
     echo "  --help               Display this help message"
     exit 0
 }
@@ -55,14 +55,14 @@ get_ip_address() {
     echo "$ip_address"
 }
 
-# Function to generate HAProxy master server configuration
+# Function to generate proxy server master server configuration
 config_master_ip_address() {
     local ip_address=$1
     local master_name=$2
     echo "    server $master_name ${ip_address}:6443 check fall 3 rise 2"
 }
 
-# Function to generate HAProxy master server configuration
+# Function to generate proxy server master server configuration
 config_internal_proxy_master_ip_address() {
     local ip_address=$1
     local master_name=$2
@@ -158,6 +158,10 @@ while [ $# -gt 0 ]; do
             HAPROXY_MEMORY="$2"
             shift 2
             ;;
+        --host)
+            HAPROXY_MEMORY="$2"
+            shift 2
+            ;;
         --help)
             display_help
             ;;
@@ -185,6 +189,9 @@ WORKER_DISK=${WORKER_DISK:-$DEFAULT_WORKER_DISK}
 HAPROXY_DISK=${HAPROXY_DISK:-$DEFAULT_HAPROXY_DISK}
 HAPROXY_CPU=${HAPROXY_CPU:-$DEFAULT_HAPROXY_CPU}
 HAPROXY_MEMORY=${HAPROXY_MEMORY:-$DEFAULT_HAPROXY_MEMORY}
+DEFAULT_K8S_PROXY_SERVER_HOSTNAME="${CLUSTER_VERSION}.k8s.local"
+K8S_PROXY_SERVER_HOSTNAME=${K8S_PROXY_SERVER_HOSTNAME:-$DEFAULT_K8S_PROXY_SERVER_HOSTNAME}
+K8S_PROXY_SERVER_NODE_NAME="k8s-proxy-server-${CLUSTER_VERSION}"
 
 join_worker_nodes() {
   local JOIN_COMMAND=""
@@ -194,26 +201,17 @@ join_worker_nodes() {
       log "Joining worker $node to the cluster with code $JOIN_COMMAND"
       multipass exec "$node" -- sudo bash -c "$JOIN_COMMAND"
   done
-  multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo kubectl get nodes -o wide
 }
 
 master_node_config() {
   echo "#!/bin/bash
 
-  set -e
+set -e
+sudo kubeadm init --control-plane-endpoint $K8S_PROXY_SERVER_HOSTNAME:6443 --upload-certs
 
-  # Pull container images for each master node
-  sudo kubeadm init --control-plane-endpoint $HAPROXY_NAME:6443 --upload-certs
-
-  sudo mkdir -p \$HOME/.kube
-  sudo cp -i /etc/kubernetes/admin.conf \$HOME/.kube/config
-  sudo chown \$(id -u):\$(id -g) \$HOME/.kube/config
-
-  echo \"\"
-  echo \"\"
-  kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/weave-daemonset-k8s.yaml
-  kubectl create namespace development
-  kubectl config set-context --current --namespace=development
+sudo mkdir -p \$HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf \$HOME/.kube/config
+sudo chown \$(id -u):\$(id -g) \$HOME/.kube/config
   " > "${TEMP_DIR}"/master-setup
 
   # Transfer the master-setup script to the first master node
@@ -227,10 +225,21 @@ master_node_config() {
 
   join_worker_nodes
 
-  # Install Nginx Ingress Controller
+  ARCH=$(multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- uname -m)
+
+  if [[ "$ARCH" == "arm"* || "$ARCH" == "aarch64" ]]; then
+    log "ARM architecture detected. Applying Calico..."
+    multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c "kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml"
+  else
+    log "Non-ARM architecture detected. Applying Weave..."
+    multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c "kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/weave-daemonset-k8s.yaml"
+  fi
+
+  multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c "kubectl create namespace development"
+  multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c "kubectl config set-context --current --namespace=development"
   multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c "kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml"
   # Install metrics server
-#  multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c " kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml"
+  multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c " kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml"
 }
 
 utils_generate() {
@@ -238,26 +247,24 @@ utils_generate() {
 
 set -e
 
-mkdir -p \$HOME/.kube
-mv \$HOME/.kube/config \$HOME/.kube/config-bkp-from-\$(date +'%Y-%m-%d %H-%M-%S') || true
+mkdir -p \"\${HOME}\"/.kube
+mv \"\${HOME}\"/.kube/config \"\${HOME}\"/.kube/config-\$(date +'%Y-%m-%d-%H-%M-%S') || true
 cp ${TEMP_DIR}/config \$HOME/.kube/config
-chmod 644 \$HOME/.kube/config
+chmod 644 \"\${HOME}\"/.kube/config
 
 " > "${TEMP_DIR}"/kube-config
 
-chmod +x "${TEMP_DIR}"/kube-config
+  chmod +x "${TEMP_DIR}"/kube-config
 
   log "Change kubectl context to the new cluster by running the following command:
     ${TEMP_DIR}/kube-config
   "
 
-  echo "#!/bin/bash
+  cp ./scripts/template/hosts-config "${TEMP_DIR}"/hosts-config
 
-set -e
-sudo echo $HAPROXY_IP ${HAPROXY_NAME} | sudo tee -a /etc/hosts
+  echo "update_or_add_host "${HAPROXY_IP}" "${K8S_PROXY_SERVER_HOSTNAME}"
 sudo cat /etc/hosts
-
-" > "${TEMP_DIR}"/hosts-config
+" >> "${TEMP_DIR}"/hosts-config
 
   chmod +x "${TEMP_DIR}"/hosts-config
 
@@ -267,9 +274,9 @@ sudo cat /etc/hosts
 }
 
 update_haproxy_config() {
-  multipass transfer "${HAPROXY_CFG_PATH}" "${HAPROXY_NAME}:/tmp/haproxy.cfg"
+  multipass transfer "${HAPROXY_CFG_PATH}" "${K8S_PROXY_SERVER_NODE_NAME}:/tmp/haproxy.cfg"
 
-  multipass exec "$HAPROXY_NAME" -- bash -c "
+  multipass exec "$K8S_PROXY_SERVER_NODE_NAME" -- bash -c "
       sudo mv /tmp/haproxy.cfg /etc/haproxy/haproxy.cfg
       sudo chown root:root /etc/haproxy/haproxy.cfg
       sudo chmod 644 /etc/haproxy/haproxy.cfg
@@ -304,19 +311,19 @@ backend ${BASE_NAME}-internal-proxy-${CLUSTER_VERSION}
     balance roundrobin
     option tcp-check" >> "${HAPROXY_CFG_PATH}"
 
-  # Add master nodes to HAProxy internal proxy configuration
-  log "Setting up masters in HAProxy internal proxy configuration"
+  # Add master nodes to proxy server internal proxy configuration
+  log "Setting up masters in proxy server internal proxy configuration"
   for i in "${!MASTER_NODES[@]}"; do
       MASTER_IP=$(get_ip_address "${MASTER_NODES[$i]}")
-      log "Adding master ${MASTER_NODES[$i]}::$MASTER_IP to HAProxy internal proxy configuration"
+      log "Adding master ${MASTER_NODES[$i]}::$MASTER_IP to proxy server internal proxy configuration"
       config_internal_proxy_master_ip_address "$MASTER_IP" "${MASTER_NODES[$i]}" "${INGRESS_NGINX_SVC_PORT}" | tee -a "${HAPROXY_CFG_PATH}"
   done
 
-  # Add master nodes to HAProxy internal proxy configuration
-  log "Setting up workers in HAProxy internal proxy configuration"
+  # Add master nodes to proxy server internal proxy configuration
+  log "Setting up workers in proxy server internal proxy configuration"
   for i in "${!WORKER_NODES[@]}"; do
       WORKER_IP=$(get_ip_address "${WORKER_NODES[$i]}")
-      log "Adding worker ${WORKER_NODES[$i]}::$MASTER_IP to HAProxy internal proxy configuration"
+      log "Adding worker ${WORKER_NODES[$i]}::$MASTER_IP to proxy server internal configuration"
       config_internal_proxy_master_ip_address "$WORKER_IP" "${WORKER_NODES[$i]}"  "${INGRESS_NGINX_SVC_PORT}" | tee -a "${HAPROXY_CFG_PATH}"
   done
 }

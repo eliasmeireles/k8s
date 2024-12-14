@@ -62,7 +62,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: http-request.k8s.learning.local
+    - host: http-request.v1.k8s.local
       http:
         paths:
           - path: /

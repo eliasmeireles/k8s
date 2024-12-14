@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -e
+
+update_or_add_host() {
+  local ip="$1"
+  local host="$2"
+
+  if grep -q " $host$" /etc/hosts; then
+    echo "Updating $host with IP $ip in /etc/hosts..."
+    sudo sed -i '' "s/.* $host\$/$ip $host/" /etc/hosts
+  else
+    echo "Adding $host with IP $ip to /etc/hosts..."
+    echo "$ip $host" | sudo tee -a /etc/hosts > /dev/null
+  fi
+}
+
+

@@ -13,7 +13,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: monitor.k8s.learning.local
+    - host: monitor.v1.k8s.local
       http:
         paths:
           - path: /

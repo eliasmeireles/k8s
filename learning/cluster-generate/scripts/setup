@@ -62,22 +62,19 @@ launch_workers() {
     done
 }
 
-# Create HAProxy node
-HAPROXY_NAME="${BASE_NAME}-haproxy-${CLUSTER_VERSION}"
-
-launch_haproxy() {
-  log "Checking HAProxy node: $HAPROXY_NAME"
+launch_proxy_server() {
+  log "Checking proxy server node: $K8S_PROXY_SERVER_HOSTNAME"
 
   # Check if the HAProxy node already exists
-  if multipass list | grep -qw "^$HAPROXY_NAME"; then
-      log "HAProxy node $HAPROXY_NAME already exists. Skipping creation."
+  if multipass list | grep -qw "^$K8S_PROXY_SERVER_NODE_NAME"; then
+      log "Proxy server node $K8S_PROXY_SERVER_NODE_NAME already exists. Skipping creation."
   else
-      log "Creating HAProxy node: $HAPROXY_NAME"
-      HAPROXY_LOG_FILE="${TEMP_DIR}/${HAPROXY_NAME}_launcher.log"
-      multipass launch --name "$HAPROXY_NAME" --memory "${HAPROXY_DISK}" --cpus "$HAPROXY_CPU" --disk "${HAPROXY_DISK}" --cloud-init ./template/k8s-haproxy.yaml > "$HAPROXY_LOG_FILE" 2>&1 &
+      log "Creating proxy server node: $K8S_PROXY_SERVER_NODE_NAME"
+      HAPROXY_LOG_FILE="${TEMP_DIR}/${K8S_PROXY_SERVER_NODE_NAME}_launcher.log"
+      multipass launch --name "$K8S_PROXY_SERVER_NODE_NAME" --memory "${HAPROXY_DISK}" --cpus "$HAPROXY_CPU" --disk "${HAPROXY_DISK}" --cloud-init ./template/k8s-haproxy.yaml > "$HAPROXY_LOG_FILE" 2>&1 &
       local PID
       PID=$!
-      log "$HAPROXY_NAME launcher running in pid: $PID"
+      log "$K8S_PROXY_SERVER_NODE_NAME launcher running in pid: $PID"
       HAPROXY_PID+=("$PID")
   fi
 }
@@ -106,7 +103,7 @@ wait_for_node_launches() {
 # Main execution
 launch_masters
 launch_workers
-launch_haproxy
+launch_proxy_server
 wait_for_node_launches
 
 MASTER_PULLING_PIDS=()
@@ -134,12 +131,12 @@ log "All container images have been pulled successfully. Check individual log fi
 
 HAPROXY_CFG_PATH="${TEMP_DIR}/haproxy.cfg"
 
-log "Loading HAProxy configuration from $HAPROXY_NAME to $HAPROXY_CFG_PATH"
-multipass transfer "${HAPROXY_NAME}:/etc/haproxy/haproxy-bk.cfg" "${HAPROXY_CFG_PATH}"
+log "Loading HAProxy configuration from $K8S_PROXY_SERVER_NODE_NAME to $HAPROXY_CFG_PATH"
+multipass transfer "${K8S_PROXY_SERVER_NODE_NAME}:/etc/haproxy/haproxy-bk.cfg" "${HAPROXY_CFG_PATH}"
 
 # Get HAProxy IP address
-log "HAProxy installed on $HAPROXY_NAME"
-HAPROXY_IP=$(get_ip_address "$HAPROXY_NAME")
+log "HAProxy installed on $K8S_PROXY_SERVER_NODE_NAME"
+HAPROXY_IP=$(get_ip_address "$K8S_PROXY_SERVER_NODE_NAME")
 
 echo "
 # K8s proxy
@@ -154,7 +151,7 @@ backend ${BASE_NAME}-masters-${CLUSTER_VERSION}
     balance roundrobin
     option tcp-check" >> "${HAPROXY_CFG_PATH}"
 
-log "$HAPROXY_NAME:: Updating HAProxy configuration"
+log "$K8S_PROXY_SERVER_NODE_NAME:: Updating proxy server configuration"
 
 # Add master nodes to HAProxy configuration
 log "Setting up masters in HAProxy configuration"
@@ -169,7 +166,7 @@ done
 log "Setting up workers in HAProxy configuration"
 for node in "${MASTER_NODES[@]}" "${WORKER_NODES[@]}"; do
     log "Updating /etc/hosts on $node"
-    multipass exec "$node" -- bash -c "echo '${HAPROXY_IP} ${HAPROXY_NAME}' | sudo tee -a /etc/hosts"
+    multipass exec "$node" -- bash -c "echo '${HAPROXY_IP} ${K8S_PROXY_SERVER_HOSTNAME}' | sudo tee -a /etc/hosts"
 done
 
 update_haproxy_config
@@ -183,7 +180,7 @@ for i in "${!MASTER_NODES[@]}"; do
     log "${MASTER_NODES[$i]}: $MASTER_IP"
 done
 
-log "HAProxy: $HAPROXY_NAME: $HAPROXY_IP"
+log "HAProxy: $K8S_PROXY_SERVER_HOSTNAME: $HAPROXY_IP"
 
 log "Cluster [${BASE_NAME}-${CLUSTER_VERSION}] setup is complete."
 
