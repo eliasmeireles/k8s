@@ -1,0 +1,46 @@
+#!/bin/bash
+
+set -e
+
+# Check if the script is run as root
+if [[ $EUID -ne 0 ]]; then
+   echo "This script must be run as root or with sudo."
+   exit 1
+fi
+
+# Verify kubeadm is installed
+if ! command -v kubeadm &> /dev/null; then
+    echo "kubeadm is not installed. Please install it and try again."
+    exit 1
+fi
+
+# Verify the cluster is running
+if ! kubectl get nodes &> /dev/null; then
+    echo "Unable to communicate with the Kubernetes cluster. Please ensure the cluster is running and 'kubectl' is configured."
+    exit 1
+fi
+
+
+JOIN_COMMAND=$(kubeadm token create --print-join-command 2>&1)
+
+if [[ -z "$JOIN_COMMAND" ]]; then
+    echo "Failed to generate token. Please check if 'kubeadm' is installed and the cluster is running."
+    exit 1
+fi
+
+
+CERT_KEY_OUTPUT=$(kubeadm init phase upload-certs --upload-certs 2>&1)
+
+# Extract the certificate key
+CERT_KEY=$(echo "$CERT_KEY_OUTPUT" | grep -A 1 "Using certificate key:" | tail -n 1 | awk '{print $1}')
+
+
+if [[ -z "$CERT_KEY" ]]; then
+    echo "Failed to generate certificate key. Output from kubeadm:"
+    echo "$CERT_KEY_OUTPUT"
+    echo "Please ensure the cluster was initialized with '--upload-certs'."
+    exit 1
+fi
+
+FULL_JOIN_COMMAND="$JOIN_COMMAND --control-plane --certificate-key $CERT_KEY"
+echo "$FULL_JOIN_COMMAND"

@@ -203,6 +203,35 @@ join_worker_nodes() {
   done
 }
 
+master_nodes_join() {
+  multipass transfer "./scripts/join-command-generator" "${BASE_NAME}-master-1-${CLUSTER_VERSION}:/tmp/join-command-generator"
+
+  CONTROL_PLANE_JOIN_COMMAND=$(multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c " /tmp/join-command-generator ")
+
+  echo "Generated join command: $CONTROL_PLANE_JOIN_COMMAND"
+  if [[ -z "$CONTROL_PLANE_JOIN_COMMAND" ]]; then
+      log "ERROR: CONTROL_PLANE_JOIN_COMMAND is empty or invalid. Skipping joining additional master nodes."
+  else
+      log "CONTROL_PLANE_JOIN_COMMAND is valid: $CONTROL_PLANE_JOIN_COMMAND"
+
+      # Join additional master nodes (skip the first master node)
+      for ((i = 2; i <= NUM_MASTERS; i++)); do
+          MASTER_NODE="${BASE_NAME}-master-${i}-${CLUSTER_VERSION}"
+          log "Joining master node $MASTER_NODE to the cluster..."
+
+          # Run the join command on the additional master node
+          multipass exec "$MASTER_NODE" -- sudo bash -c "$CONTROL_PLANE_JOIN_COMMAND"
+
+          # Verify the node joined successfully
+          if multipass exec "$MASTER_NODE" -- sudo kubectl get nodes | grep "$MASTER_NODE"; then
+              log "Master node $MASTER_NODE successfully joined the cluster."
+          else
+              log "ERROR: Master node $MASTER_NODE failed to join the cluster."
+          fi
+      done
+  fi
+}
+
 master_node_config() {
   echo "#!/bin/bash
 
@@ -240,6 +269,8 @@ sudo chown \$(id -u):\$(id -g) \$HOME/.kube/config
   multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c "kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml"
   # Install metrics server
   multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c " kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml"
+
+ master_nodes_join || true
 }
 
 utils_generate() {

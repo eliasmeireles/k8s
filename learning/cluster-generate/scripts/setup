@@ -190,7 +190,12 @@ config_haproxy_internal_proxy
 
 update_haproxy_config
 
+echo "Listing nodes with command -> multipass exec ${BASE_NAME}-master-1-${CLUSTER_VERSION} -- sudo bash -c \"kubectl get nodes\""
+
+multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c "kubectl get nodes"
+
 utils_generate
+
 
 
 
