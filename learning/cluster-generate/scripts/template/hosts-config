@@ -8,11 +8,19 @@ update_or_add_host() {
 
   if grep -q " $host$" /etc/hosts; then
     echo "Updating $host with IP $ip in /etc/hosts..."
-    sudo sed -i '' "s/.* $host\$/$ip $host/" /etc/hosts
+    # Use the appropriate sed syntax based on the OS
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      # macOS
+      sudo sed -i '' "s/.* $host\$/$ip $host/" /etc/hosts
+    else
+      # Linux
+      sudo sed -i "s/.* $host\$/$ip $host/" /etc/hosts
+    fi
   else
     echo "Adding $host with IP $ip to /etc/hosts..."
     echo "$ip $host" | sudo tee -a /etc/hosts > /dev/null
   fi
 }
+
 
 

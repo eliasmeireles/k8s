@@ -33,7 +33,7 @@ launch_masters() {
 
       log "$MASTER_NAME launcher running in pid: $PID"
       MASTER_PIDS+=("$PID")
-      sleep 1
+      sleep 2
     done
 }
 
@@ -58,7 +58,7 @@ launch_workers() {
 
         log "$WORKER_NAME launcher running in pid: $PID"
          WORKER_PIDS+=($PID)
-        sleep 1
+        sleep 2
     done
 }
 
@@ -103,7 +103,9 @@ wait_for_node_launches() {
 # Main execution
 launch_masters
 launch_workers
+sleep 2
 launch_proxy_server
+sleep 10
 wait_for_node_launches
 
 MASTER_PULLING_PIDS=()
