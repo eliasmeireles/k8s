@@ -57,7 +57,7 @@ file-server-logs:
 	kubectl logs -f -l app=file-server --prefix=true
 
 file-server-test:
-	nohup bash -c 'for i in $(seq 1 100000); do curl -s -o /dev/null http://k8s.learning.local/api/file-server/v1/files & done' &
+	bash -c 'for i in $(seq 1 100000); do curl -s -o /dev/null http://v1.k8s.local/api/file-server/v1/files & done' &
 
 
 
