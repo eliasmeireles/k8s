@@ -33,7 +33,7 @@ launch_masters() {
 
       log "$MASTER_NAME launcher running in pid: $PID"
       MASTER_PIDS+=("$PID")
-      sleep 2
+      sleep 5
     done
 }
 
@@ -58,7 +58,7 @@ launch_workers() {
 
         log "$WORKER_NAME launcher running in pid: $PID"
          WORKER_PIDS+=($PID)
-        sleep 2
+        sleep 5
     done
 }
 
@@ -103,7 +103,7 @@ wait_for_node_launches() {
 # Main execution
 launch_masters
 launch_workers
-sleep 2
+sleep 5
 launch_proxy_server
 sleep 10
 wait_for_node_launches
@@ -190,10 +190,11 @@ config_haproxy_internal_proxy
 
 update_haproxy_config
 
-echo "Listing nodes with command -> multipass exec ${BASE_NAME}-master-1-${CLUSTER_VERSION} -- sudo bash -c \"kubectl get nodes\""
+echo "Listing nodes with command:"
+echo "  multipass exec ${BASE_NAME}-master-1-${CLUSTER_VERSION} -- sudo bash -c \"kubectl get nodes\""
+sleep 5
 
 multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c "kubectl get nodes"
-
 utils_generate
 
 
