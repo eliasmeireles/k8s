@@ -245,6 +245,7 @@ sudo chown \$(id -u):\$(id -g) \$HOME/.kube/config
 
   # Transfer the master-setup script to the first master node
   multipass transfer "${TEMP_DIR}/master-setup" "${BASE_NAME}-master-1-${CLUSTER_VERSION}:/tmp/master-setup"
+  multipass transfer "./template/metrics-server.yaml "${BASE_NAME}-master-1-${CLUSTER_VERSION}:/tmp/metrics-server.yaml"
 
   # Make the script executable
   multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo chmod +x /tmp/master-setup
@@ -267,8 +268,9 @@ sudo chown \$(id -u):\$(id -g) \$HOME/.kube/config
   multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c "kubectl create namespace development"
   multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c "kubectl config set-context --current --namespace=development"
   multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c "kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml"
+
   # Install metrics server
-  multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c " kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml"
+  multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo bash -c " kubectl apply -f /tmp/metrics-server.yaml"
 
  master_nodes_join || true
 }
