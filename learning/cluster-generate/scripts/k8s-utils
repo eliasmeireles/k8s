@@ -245,7 +245,7 @@ sudo chown \$(id -u):\$(id -g) \$HOME/.kube/config
 
   # Transfer the master-setup script to the first master node
   multipass transfer "${TEMP_DIR}/master-setup" "${BASE_NAME}-master-1-${CLUSTER_VERSION}:/tmp/master-setup"
-  multipass transfer "./template/metrics-server.yaml "${BASE_NAME}-master-1-${CLUSTER_VERSION}:/tmp/metrics-server.yaml"
+  multipass transfer "./template/metrics-server.yaml" "${BASE_NAME}-master-1-${CLUSTER_VERSION}:/tmp/metrics-server.yaml"
 
   # Make the script executable
   multipass exec "${BASE_NAME}-master-1-${CLUSTER_VERSION}" -- sudo chmod +x /tmp/master-setup

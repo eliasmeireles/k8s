@@ -6,6 +6,7 @@ nodes:
   - role: control-plane
   - role: worker
   - role: worker
+  - role: worker
 networking:
   apiServerAddress: "0.0.0.0"
   apiServerPort: 6443

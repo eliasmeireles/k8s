@@ -9,16 +9,13 @@ metadata:
   name: grafana
   namespace: monitoring
 spec:
-  egress:
-    - {}
   ingress:
-    - from:
-        - namespaceSelector: { }
-          podSelector: { }
     - from:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: prometheus
+              app.kubernetes.io/component: grafana
+              app.kubernetes.io/name: grafana
+              app.kubernetes.io/part-of: kube-prometheus
       ports:
         - port: 3000
           protocol: TCP

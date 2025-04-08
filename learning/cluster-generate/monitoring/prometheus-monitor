@@ -24,6 +24,7 @@ run_monitor_installer() {
   log "Updating grafana network policy with ${CONTENT_PATH}/grafana-networkPolicy.yaml"
 
   cp "${CONTENT_PATH}/grafana-networkPolicy.yaml" manifests/
+  cp "${CONTENT_PATH}/grafana-service.yaml" manifests/
 
   log "Loading grafana ingress with ${CONTENT_PATH}/grafana-ingress.yaml"
 
@@ -40,9 +41,9 @@ run_monitor_installer() {
     kubectl port-forward -n monitoring svc/grafana 3000:3000
   "
 
-  log "You can also configure your local DNS to access Grafana dashboard on http://monitor.k8s.learning.local
+  log "You can also configure your local DNS to access Grafana dashboard on http://monitor.v1.k8s.local
 
-    echo \"<k8s proxy ip address> monitor.k8s.learning.local\" | sudo tee -a /etc/hosts
+    echo \"<k8s proxy ip address> monitor.v1.k8s.local\" | sudo tee -a /etc/hosts
     "
 
   rm -rf "${CONTENT_PATH}/kube-prometheus"

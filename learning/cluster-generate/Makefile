@@ -59,5 +59,8 @@ file-server-logs:
 file-server-test:
 	bash -c 'for i in $(seq 1 100000); do curl -s -o /dev/null http://v1.k8s.local/api/file-server/v1/files & done' &
 
+kube-prometheus:
+
+
 
 
