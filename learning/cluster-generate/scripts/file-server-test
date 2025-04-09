@@ -49,10 +49,6 @@ start_time=$(date +%s.%N)
 
 for i in $(seq 1 "$requests"); do
   do_request
-  # Small delay to prevent overwhelming the system
-  if (( i % 100 == 0 )); then
-    sleep 0.1
-  fi
 done
 
 wait  # Wait for all background processes to complete
