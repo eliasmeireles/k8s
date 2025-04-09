@@ -2,24 +2,24 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   labels:
-    app.kubernetes.io/component: grafana
-    app.kubernetes.io/name: grafana
+    app.kubernetes.io/component: prometheus
+    app.kubernetes.io/name: prometheus
     app.kubernetes.io/part-of: kube-prometheus
     app.kubernetes.io/version: 11.3.1
-  name: grafana-ingress
+  name: prometheus-ingress
   namespace: monitoring
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   ingressClassName: nginx
   rules:
-    - host: monitor.v1.k8s.local
+    - host: prometheus.CLUSTER_VERSION.k8s.local
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: grafana
+                name: prometheus-k8s
                 port:
-                  number: 3000
+                  number: 9090

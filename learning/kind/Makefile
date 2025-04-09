@@ -16,7 +16,8 @@ help:
 
 create:
 	@echo "Creating KIND cluster '$(CLUSTER_NAME)'..."
-	kind create cluster --name $(CLUSTER_NAME) --wait 10s --retain --config $(KIND_CONFIG)
+	#kind create cluster --name $(CLUSTER_NAME) --wait 10s --retain --config $(KIND_CONFIG)
+	kind create cluster --name $(CLUSTER_NAME) --wait 10s --config $(KIND_CONFIG)
 	@echo "\nCluster created. Use 'make context' to set kubectl context"
 
 delete:

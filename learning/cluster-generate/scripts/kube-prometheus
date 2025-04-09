@@ -1,0 +1,50 @@
+#!/bin/bash
+
+set -e
+
+source ./scripts/k8s-utils
+
+setup_logs "kube-prometheus-installer"
+
+CONTENT_PATH=$(pwd)
+
+cd "$TEMP_DIR"
+
+run_monitor_installer() {
+  rm -rf kube-prometheus || true
+  git clone https://github.com/prometheus-operator/kube-prometheus
+  cd kube-prometheus
+
+  kubectl create -f manifests/setup || true
+
+  log "Updating monitoring network policy"
+
+  # Copy custom files
+  set -x  # Enable debug output
+  cp -r "${CONTENT_PATH}/monitoring/custom/"* manifests/
+  set +x  # Disable debug output
+
+  # Update CLUSTER_VERSION in all manifest files
+  if [ -n "$CLUSTER_VERSION" ]; then
+    log "Updating CLUSTER_VERSION to $CLUSTER_VERSION in manifest files"
+    find manifests/ -type f -exec sed -i "s/CLUSTER_VERSION/$CLUSTER_VERSION/g" {} +
+  else
+    log "WARNING: CLUSTER_VERSION environment variable not set, skipping replacement"
+  fi
+
+  kubectl apply -f manifests/
+
+  cd ..
+
+  kubectl get pods -n monitoring
+
+  log "Prometheus and Grafana installed successfully"
+  log "Access:
+  http://monitor.$K8S_PROXY_SERVER_HOSTNAME
+  http://prometheus.$K8S_PROXY_SERVER_HOSTNAME"
+
+  rm -rf "${CONTENT_PATH}/kube-prometheus"
+  exit 0  # Changed from 1 to 0 for successful exit
+}
+
+run_monitor_installer

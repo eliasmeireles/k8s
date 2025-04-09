@@ -59,7 +59,12 @@ file-server-logs:
 file-server-test:
 	bash -c 'for i in $(seq 1 100000); do curl -s -o /dev/null http://v1.k8s.local/api/file-server/v1/files & done' &
 
-kube-prometheus:
+apply-kube-prometheus:
+	./scripts/kube-prometheus \
+		--base-name $(BASE_NAME) \
+		--cluster-version $(CLUSTER_VERSION) \
+		--num-masters $(NUM_MASTERS) \
+		--num-workers $(NUM_WORKERS)
 
 
 

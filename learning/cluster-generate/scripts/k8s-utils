@@ -295,7 +295,9 @@ chmod 644 \"\${HOME}\"/.kube/config
 
   cp ./scripts/template/hosts-config "${TEMP_DIR}"/hosts-config
 
-  echo "update_or_add_host "${HAPROXY_IP}" "${K8S_PROXY_SERVER_HOSTNAME}"
+  echo "update_or_add_host ${HAPROXY_IP} ${K8S_PROXY_SERVER_HOSTNAME}
+update_or_add_host ${HAPROXY_IP} prometheus.${K8S_PROXY_SERVER_HOSTNAME}
+update_or_add_host ${HAPROXY_IP} monitor.${K8S_PROXY_SERVER_HOSTNAME}
 sudo cat /etc/hosts
 " >> "${TEMP_DIR}"/hosts-config
 
