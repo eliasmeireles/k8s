@@ -4,6 +4,8 @@ metadata:
   name: grafana
   namespace: monitoring
 spec:
+  egress:
+    - { }
   ingress:
     - from: []
       ports:
