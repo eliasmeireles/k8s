@@ -124,21 +124,15 @@ After completing the steps described in [Master Node Setup](#master-node-setup),
 
 To monitor your cluster, you can install **kube-prometheus**:
 
+> Make sure that you checked the expected cluster context
+
 ```bash
-git clone https://github.com/prometheus-operator/kube-prometheus
-cd kube-prometheus
-kubectl create -f manifests/setup
-kubectl apply -f manifests/
-kubectl get pods -n monitoring
+make apply-kube-prometheus
 ```
 
 When all pods in the `monitoring` namespace are running, access the Prometheus dashboard:
 
-```bash
-kubectl port-forward -n monitoring svc/grafana 3000:3000
-```
-
-Access the dashboard at [http://localhost:3000](http://localhost:3000) and use the default credentials (`admin/admin`).
+Access the dashboard at [http://monitor.v1.k8s.local](http://monitor.v1.k8s.local) and use the default credentials (`admin/admin`).
 
 ---
 
