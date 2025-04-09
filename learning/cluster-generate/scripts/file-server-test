@@ -1,0 +1,63 @@
+#!/bin/bash
+
+# Enhanced file server load test script
+
+# Configuration
+DEFAULT_CLUSTER_VERSION="v1"
+CLUSTER_VERSION=${CLUSTER_VERSION:-$DEFAULT_CLUSTER_VERSION}
+URL="http://${CLUSTER_VERSION}.k8s.local/api/file-server/v1/files"
+MAX_CONCURRENT_REQUESTS=100000  # Safety limit to prevent system overload
+SILENT_MODE=true
+
+# Function to make silent async requests
+do_request() {
+  if $SILENT_MODE; then
+    curl -s -o /dev/null -w "%{http_code}" "$URL" >/dev/null 2>&1 &
+  else
+    curl -o /dev/null "$URL" >/dev/null 2>&1 &
+  fi
+}
+
+# Main execution
+if [ -z "$1" ]; then
+  echo "Usage: CLUSTER_VERSION=v2 $0 <number_of_requests>"
+  echo "Note: Using cluster version: $CLUSTER_VERSION"
+  exit 1
+fi
+
+requests=$1
+
+# Validate input
+if ! [[ "$requests" =~ ^[0-9]+$ ]]; then
+  echo "Error: Number of requests must be a positive integer"
+  exit 1
+fi
+
+if [ "$requests" -gt "$MAX_CONCURRENT_REQUESTS" ]; then
+  echo "Warning: Number of requests ($requests) exceeds safety limit ($MAX_CONCURRENT_REQUESTS)"
+  read -p "Do you want to continue? [y/N] " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    exit 0
+  fi
+fi
+
+echo "Starting $requests async requests to $URL"
+echo "Cluster version: $CLUSTER_VERSION"
+
+start_time=$(date +%s.%N)
+
+for i in $(seq 1 "$requests"); do
+  do_request
+  # Small delay to prevent overwhelming the system
+  if (( i % 100 == 0 )); then
+    sleep 0.1
+  fi
+done
+
+wait  # Wait for all background processes to complete
+
+end_time=$(date +%s.%N)
+elapsed=$(echo "$end_time - $start_time" | bc)
+
+echo "Completed $requests requests in $elapsed seconds"

@@ -1,6 +1,7 @@
 # Default values
 BASE_NAME ?= k8s
 CLUSTER_VERSION ?= v1
+AMOUNT_REQUEST_FILE_SERVER_TEST ?= 10000
 NUM_MASTERS ?= 1
 NUM_WORKERS ?= 2
 
@@ -51,13 +52,13 @@ debug-up:
 	kubectl exec -it debug-pod -- sh
 
 internal-server-logs:
-	kubectl logs -f -l app=internal-server --prefix=true
+	kubectl logs -f -l app=internal-server --prefix=true --max-log-requests=20
 
 file-server-logs:
-	kubectl logs -f -l app=file-server --prefix=true
+	kubectl logs -f -l app=file-server --prefix=true --max-log-requests=20
 
 file-server-test:
-	bash -c 'for i in $(seq 1 100000); do curl -s -o /dev/null http://v1.k8s.local/api/file-server/v1/files & done' &
+	CLUSTER_VERSION=$(CLUSTER_VERSION) ./scripts/file-server-test $(AMOUNT_REQUEST_FILE_SERVER_TEST)
 
 apply-kube-prometheus:
 	./scripts/kube-prometheus \
