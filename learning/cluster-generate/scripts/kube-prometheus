@@ -27,7 +27,7 @@ run_monitor_installer() {
   # Update CLUSTER_VERSION in all manifest files
   if [ -n "$CLUSTER_VERSION" ]; then
     log "Updating CLUSTER_VERSION to $CLUSTER_VERSION in manifest files"
-    find manifests/ -type f -exec sed -i "s/CLUSTER_VERSION/$CLUSTER_VERSION/g" {} +
+    find manifests/ -type f -exec perl -pi -e "s/CLUSTER_VERSION/$CLUSTER_VERSION/g" {} +
   else
     log "WARNING: CLUSTER_VERSION environment variable not set, skipping replacement"
   fi
