@@ -16,8 +16,11 @@ help:
 
 create:
 	@echo "Creating KIND cluster '$(CLUSTER_NAME)'..."
-	#kind create cluster --name $(CLUSTER_NAME) --wait 10s --retain --config $(KIND_CONFIG)
-	kind create cluster --name $(CLUSTER_NAME) --wait 10s --config $(KIND_CONFIG)
+	#kind create cluster --name $(CLUSTER_NAME) --retain --config $(KIND_CONFIG)
+	kind create cluster --name $(CLUSTER_NAME) --config $(KIND_CONFIG)
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+	kubectl config use-context kind-$(CLUSTER_NAME)
+	kubectl get nodes -o wide
 	@echo "\nCluster created. Use 'make context' to set kubectl context"
 
 delete:
