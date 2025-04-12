@@ -30,10 +30,10 @@ delete-cluster:
 	./scripts/delete-instances.sh $(CLUSTER_VERSION)
 
 deploy-file-server:
-	kubectl apply -f ./file-server/file-server.yaml
+	kubectl apply -f ../file-server/file-server.yaml
 
 delete-file-server:
-	kubectl delete -f ./file-server/file-server.yaml
+	kubectl delete -f ../file-server/file-server.yaml
 
 deploy-proxy:
 	kubectl  apply -f proxy/internal-server.yaml
