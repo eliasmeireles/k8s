@@ -1,0 +1,34 @@
+#!/bin/bash
+
+TEMP_DIR=.temp
+mkdir -p "$TEMP_DIR"
+
+# Download the latest metrics-server manifest
+echo "Downloading metrics-server manifest..."
+curl -Ls https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml -o "$TEMP_DIR"/metrics-server.yaml
+
+# Check if download succeeded
+if [ $? -ne 0 ]; then
+  echo "❌ Failed to download metrics-server manifest."
+  exit 1
+fi
+
+# Add the required args to the Deployment
+echo "Adding TLS args to metrics-server..."
+
+# First remove any existing insecure-tls args to avoid duplicates
+sed -i '/--kubelet-insecure-tls/d' "$TEMP_DIR"/metrics-server.yaml
+sed -i '/--kubelet-preferred-address-types/d' "$TEMP_DIR"/metrics-server.yaml
+
+# Insert the new args before the image line
+sed -i '/image: registry.k8s.io\/metrics-server\/metrics-server:/i \        # New args\n        - --kubelet-insecure-tls\n        - --kubelet-preferred-address-types=InternalIP,Hostname' "$TEMP_DIR"/metrics-server.yaml
+
+rm -rf "$TEMP_DIR" || true
+
+if [ $? -ne 0 ]; then
+  echo "❌ Failed to modify metrics-server manifest."
+  exit 1
+fi
+
+echo "✅ Successfully saved modified manifest to: "$TEMP_DIR"/metrics-server.yaml"
+echo "Deploy with: kubectl apply -f "$TEMP_DIR"/metrics-server.yaml"
