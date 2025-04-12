@@ -10,6 +10,7 @@ curl -Ls https://github.com/kubernetes-sigs/metrics-server/releases/latest/downl
 # Check if download succeeded
 if [ $? -ne 0 ]; then
   echo "❌ Failed to download metrics-server manifest."
+  rm -rf "$TEMP_DIR" || true
   exit 1
 fi
 
@@ -23,12 +24,16 @@ sed -i '/--kubelet-preferred-address-types/d' "$TEMP_DIR"/metrics-server.yaml
 # Insert the new args before the image line
 sed -i '/image: registry.k8s.io\/metrics-server\/metrics-server:/i \        # New args\n        - --kubelet-insecure-tls\n        - --kubelet-preferred-address-types=InternalIP,Hostname' "$TEMP_DIR"/metrics-server.yaml
 
-rm -rf "$TEMP_DIR" || true
 
 if [ $? -ne 0 ]; then
   echo "❌ Failed to modify metrics-server manifest."
+  rm -rf "$TEMP_DIR" || true
   exit 1
 fi
 
-echo "✅ Successfully saved modified manifest to: "$TEMP_DIR"/metrics-server.yaml"
-echo "Deploy with: kubectl apply -f "$TEMP_DIR"/metrics-server.yaml"
+kubectl apply -f "$TEMP_DIR"/metrics-server.yaml
+
+rm -rf "$TEMP_DIR" || true
+
+echo "✅ metrics server successfully applied"
+

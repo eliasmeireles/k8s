@@ -4,10 +4,20 @@ CLUSTER_VERSION ?= v1
 AMOUNT_REQUEST_FILE_SERVER_TEST ?= 10000
 NUM_MASTERS ?= 1
 NUM_WORKERS ?= 2
+NAMESPACE ?= default
 
 kube-config:
 	mkdir "./.temp" || true
 	multipass exec $(BASE_NAME)-master-1-$(CLUSTER_VERSION) -- sudo cat /root/.kube/config > ./.temp/$(BASE_NAME)-master-1-$(CLUSTER_VERSION)-kube-config.yaml
+
+get-pods:
+	multipass exec $(BASE_NAME)-master-1-$(CLUSTER_VERSION) -- sudo bash -c "kubectl get pods -n $(NAMESPACE)"
+
+get-pods-ks:
+	make get-pods NAMESPACE=kube-system
+
+exec:
+	multipass exec $(BASE_NAME)-master-1-$(CLUSTER_VERSION) bash
 
 new-cluster:
 	./scripts/setup \
